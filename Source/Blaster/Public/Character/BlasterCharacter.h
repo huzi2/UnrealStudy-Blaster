@@ -8,6 +8,9 @@
 
 class USpringArmComponent;
 class UCameraComponent;
+class UInputMappingContext;
+class UInputAction;
+struct FInputActionValue;
 
 UCLASS()
 class BLASTER_API ABlasterCharacter : public ACharacter
@@ -23,9 +26,33 @@ private:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) final;
 
 private:
+	void MoveForward(const FInputActionValue& Value);
+	void MoveRight(const FInputActionValue& Value);
+	void Turn(const FInputActionValue& Value);
+	void LookUp(const FInputActionValue& Value);
+
+private:
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	UCameraComponent* FollowCamera;
+
+	UPROPERTY(EditAnywhere, Category = Input)
+	UInputMappingContext* DefaultInputMappingContext;
+
+	UPROPERTY(EditAnywhere, Category = Input)
+	UInputAction* JumpInputAction;
+
+	UPROPERTY(EditAnywhere, Category = Input)
+	UInputAction* MoveForwardInputAction;
+
+	UPROPERTY(EditAnywhere, Category = Input)
+	UInputAction* MoveRightInputAction;
+
+	UPROPERTY(EditAnywhere, Category = Input)
+	UInputAction* TurnInputAction;
+
+	UPROPERTY(EditAnywhere, Category = Input)
+	UInputAction* LookUpInputAction;
 };
