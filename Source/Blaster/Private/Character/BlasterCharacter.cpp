@@ -46,6 +46,7 @@ ABlasterCharacter::ABlasterCharacter()
 	LookUpInputAction = CreateDefaultSubobject<UInputAction>(TEXT("LookUpInputAction"));
 	EquipInputAction = CreateDefaultSubobject<UInputAction>(TEXT("EquipInputAction"));
 	CrouchInputAction = CreateDefaultSubobject<UInputAction>(TEXT("CrouchInputAction"));
+	AimInputAction = CreateDefaultSubobject<UInputAction>(TEXT("AimInputAction"));
 }
 
 void ABlasterCharacter::BeginPlay()
@@ -89,6 +90,8 @@ void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		Input->BindAction(LookUpInputAction, ETriggerEvent::Triggered, this, &ThisClass::LookUp);
 		Input->BindAction(EquipInputAction, ETriggerEvent::Triggered, this, &ThisClass::EquipButtonPressed);
 		Input->BindAction(CrouchInputAction, ETriggerEvent::Started, this, &ThisClass::CrouchButtonPressed);
+		Input->BindAction(AimInputAction, ETriggerEvent::Started, this, &ThisClass::AimButtonPressed);
+		Input->BindAction(AimInputAction, ETriggerEvent::Completed, this, &ThisClass::AimButtonReleased);
 	}
 }
 
@@ -131,6 +134,11 @@ void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 bool ABlasterCharacter::IsWeaponEquipped() const
 {
 	return Combat && Combat->EquippedWeapon;
+}
+
+bool ABlasterCharacter::IsAiming() const
+{
+	return Combat && Combat->bAiming;
 }
 
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
@@ -199,6 +207,22 @@ void ABlasterCharacter::CrouchButtonPressed()
 	else
 	{
 		Crouch();
+	}
+}
+
+void ABlasterCharacter::AimButtonPressed()
+{
+	if (Combat)
+	{
+		Combat->SetAiming(true);
+	}
+}
+
+void ABlasterCharacter::AimButtonReleased()
+{
+	if (Combat)
+	{
+		Combat->SetAiming(false);
 	}
 }
 

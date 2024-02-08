@@ -22,12 +22,23 @@ private:
 	virtual void BeginPlay() final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 
+private:
+	UFUNCTION(Server, Reliable)
+	void ServerSetAiming(bool bIsAiming);
+
 public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
+	void SetAiming(bool bIsAiming);
 
 private:
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;
+
+	UFUNCTION()
+	void OnRep_EquippedWeapon();
+
+	UPROPERTY(Replicated)
+	bool bAiming;
 
 private:
 	ABlasterCharacter* Character;

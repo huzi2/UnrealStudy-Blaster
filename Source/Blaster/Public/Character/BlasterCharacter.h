@@ -37,6 +37,7 @@ private:
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped() const;
+	bool IsAiming() const;
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -45,6 +46,8 @@ private:
 	void LookUp(const FInputActionValue& Value);
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
+	void AimButtonPressed();
+	void AimButtonReleased();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -88,4 +91,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* CrouchInputAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AimInputAction;
 };
