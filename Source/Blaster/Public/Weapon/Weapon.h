@@ -44,10 +44,10 @@ public:
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
-	USkeletalMeshComponent* WeaponMesh;
+	TObjectPtr<USkeletalMeshComponent> WeaponMesh;
 
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
-	USphereComponent* AreaSphere;
+	TObjectPtr<USphereComponent> AreaSphere;
 
 	UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
 	EWeaponState WeaponState;
@@ -56,5 +56,5 @@ private:
 	void OnRep_WeaponState();
 
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
-	UWidgetComponent* PickupWidget;
+	TObjectPtr<UWidgetComponent> PickupWidget;
 };

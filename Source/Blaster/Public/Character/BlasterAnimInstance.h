@@ -21,7 +21,7 @@ private:
 
 private:
 	UPROPERTY(BlueprintReadOnly, Category = Character, meta = (AllowPrivateAccess = "true"))
-	ABlasterCharacter* BlasterCharacter;
+	TObjectPtr<ABlasterCharacter> BlasterCharacter;
 
 	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
 	double Speed;

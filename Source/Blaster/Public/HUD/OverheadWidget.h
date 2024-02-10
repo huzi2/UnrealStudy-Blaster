@@ -27,5 +27,5 @@ private:
 
 private:
 	UPROPERTY(meta = (BindWidget))
-	UTextBlock* DisplayText;
+	TObjectPtr<UTextBlock> DisplayText;
 };

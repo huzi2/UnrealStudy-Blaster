@@ -56,49 +56,49 @@ private:
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	USpringArmComponent* CameraBoom;
+	TObjectPtr<USpringArmComponent> CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	UCameraComponent* FollowCamera;
+	TObjectPtr<UCameraComponent> FollowCamera;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UWidgetComponent* OverheadWidget;
+	TObjectPtr<UWidgetComponent> OverheadWidget;
 
 	UPROPERTY(VisibleAnywhere)
-	UCombatComponent* Combat;
+	TObjectPtr<UCombatComponent> Combat;
 
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
-	AWeapon* OverlappingWeapon;
+	TObjectPtr<AWeapon> OverlappingWeapon;
 
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputMappingContext* DefaultInputMappingContext;
+	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* JumpInputAction;
+	TObjectPtr<UInputAction> JumpInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* MoveForwardInputAction;
+	TObjectPtr<UInputAction> MoveForwardInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* MoveRightInputAction;
+	TObjectPtr<UInputAction> MoveRightInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* TurnInputAction;
+	TObjectPtr<UInputAction> TurnInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* LookUpInputAction;
+	TObjectPtr<UInputAction> LookUpInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* EquipInputAction;
+	TObjectPtr<UInputAction> EquipInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* CrouchInputAction;
+	TObjectPtr<UInputAction> CrouchInputAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* AimInputAction;
+	TObjectPtr<UInputAction> AimInputAction;
 
 private:
 	float AO_Yaw;

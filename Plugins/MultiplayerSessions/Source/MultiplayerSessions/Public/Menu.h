@@ -54,13 +54,13 @@ private:
 
 private:
 	UPROPERTY(meta = (BindWidget))
-	UButton* HostButton;
+	TObjectPtr<UButton> HostButton;
 
 	UPROPERTY(meta = (BindWidget))
-	UButton* JoinButton;
+	TObjectPtr<UButton> JoinButton;
 
 private:
-	UMultiplayerSessionsSubsystem* MultiplayerSessionsSubsystem;
+	TObjectPtr<UMultiplayerSessionsSubsystem> MultiplayerSessionsSubsystem;
 
 	int32 NumPublicConnections;
 	FString MatchType;

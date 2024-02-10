@@ -32,7 +32,7 @@ public:
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
-	AWeapon* EquippedWeapon;
+	TObjectPtr<AWeapon> EquippedWeapon;
 
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
@@ -47,5 +47,5 @@ private:
 	float AimWalkSpeed;
 
 private:
-	ABlasterCharacter* Character;
+	TObjectPtr<ABlasterCharacter> Character;
 };
