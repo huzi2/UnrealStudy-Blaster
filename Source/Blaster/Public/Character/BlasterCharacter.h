@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "BlasterTypes/TurningInPlace.h"
 #include "BlasterCharacter.generated.h"
 
 class USpringArmComponent;
@@ -29,6 +30,7 @@ private:
 	virtual void Tick(float DeltaTime) final;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
+	virtual void Jump() final;
 
 private:
 	UFUNCTION(Server, Reliable)
@@ -37,6 +39,8 @@ private:
 public:
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
+	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
+	AWeapon* GetEquippedWeapon() const;
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped() const;
@@ -53,6 +57,7 @@ private:
 	void AimButtonReleased();
 
 	void AimOffset(float DeltaTime);
+	void TurnInPlace(float DeltaTime);
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -102,6 +107,8 @@ private:
 
 private:
 	float AO_Yaw;
+	float InterpAO_Yaw;
 	float AO_Pitch;
 	FRotator StartingAimRotation;
+	ETurningInPlace TurningInPlace;
 };

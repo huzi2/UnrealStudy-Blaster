@@ -46,6 +46,6 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 
-private:
+	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;
 };
