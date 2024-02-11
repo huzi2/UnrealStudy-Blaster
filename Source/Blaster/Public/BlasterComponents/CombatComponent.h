@@ -31,6 +31,9 @@ public:
 	void SetAiming(bool bIsAiming);
 
 private:
+	void FireButtonPressed(bool bPressed);
+
+private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	TObjectPtr<AWeapon> EquippedWeapon;
 
@@ -46,6 +49,7 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 
-	UPROPERTY()
-	TObjectPtr<ABlasterCharacter> Character;
+private:
+	ABlasterCharacter* Character;
+	bool bFireButtonPressed;
 };

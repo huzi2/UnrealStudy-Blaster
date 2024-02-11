@@ -84,6 +84,16 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	}
 }
 
+void UCombatComponent::FireButtonPressed(bool bPressed)
+{
+	bFireButtonPressed = bPressed;
+
+	if (Character && bFireButtonPressed)
+	{
+		Character->PlayFireMontage(bAiming);
+	}
+}
+
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	// 다른 클라이언트에서도 무기들었을 때 회전하지 않도록 함

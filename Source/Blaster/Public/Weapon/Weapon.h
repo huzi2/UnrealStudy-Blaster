@@ -23,7 +23,7 @@ class BLASTER_API AWeapon : public AActor
 {
 	GENERATED_BODY()
 	
-private:
+protected:
 	AWeapon();
 
 private:
