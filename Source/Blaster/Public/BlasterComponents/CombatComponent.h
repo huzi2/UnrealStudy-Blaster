@@ -6,6 +6,8 @@
 #include "Components/ActorComponent.h"
 #include "CombatComponent.generated.h"
 
+constexpr double TRACE_LENGTH = 80000.0;
+
 class AWeapon;
 
 // 캐릭터의 무기 관리 컴포넌트
@@ -20,11 +22,18 @@ private:
 
 private:
 	virtual void BeginPlay() final;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerSetAiming(bool bIsAiming);
+
+	UFUNCTION(Server, Reliable)
+	void ServerFire();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFire();
 
 public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
@@ -32,6 +41,7 @@ public:
 
 private:
 	void FireButtonPressed(bool bPressed);
+	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -52,4 +62,5 @@ private:
 private:
 	ABlasterCharacter* Character;
 	bool bFireButtonPressed;
+	FVector HitTarget;
 };

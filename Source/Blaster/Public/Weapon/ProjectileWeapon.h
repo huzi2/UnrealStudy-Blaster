@@ -6,6 +6,7 @@
 #include "Weapon/Weapon.h"
 #include "ProjectileWeapon.generated.h"
 
+class AProjectile;
 /**
  * 
  */
@@ -14,4 +15,10 @@ class BLASTER_API AProjectileWeapon : public AWeapon
 {
 	GENERATED_BODY()
 	
+private:
+	virtual void Fire(const FVector& HitTarget) final;
+
+private:
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AProjectile> ProjectileClass;
 };
