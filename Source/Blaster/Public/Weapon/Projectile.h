@@ -8,6 +8,7 @@
 
 class UBoxComponent;
 class UProjectileMovementComponent;
+class USoundCue;
 
 UCLASS()
 class BLASTER_API AProjectile : public AActor
@@ -18,8 +19,13 @@ private:
 	AProjectile();
 
 private:
-	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaTime) override;
+	virtual void BeginPlay() final;
+	virtual void Tick(float DeltaTime) final;
+	virtual void Destroyed() final;
+
+private:
+	UFUNCTION()
+	void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 private:
 	UPROPERTY(EditAnywhere)
@@ -27,4 +33,16 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UProjectileMovementComponent> ProjectileMovementComponent;
+
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UParticleSystem> Tracer;
+	
+	UPROPERTY()
+	TObjectPtr<UParticleSystemComponent> TracerComponent;
+
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UParticleSystem> ImpactParticles;
+
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<USoundCue> ImpactSound;
 };

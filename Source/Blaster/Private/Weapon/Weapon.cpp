@@ -5,6 +5,8 @@
 #include "Components/WidgetComponent.h"
 #include "Character/BlasterCharacter.h"
 #include "Net/UnrealNetwork.h"
+#include "Weapon/Casing.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 AWeapon::AWeapon()
 {
@@ -59,6 +61,20 @@ void AWeapon::Fire(const FVector& HitTarget)
 	if (FireAnimation && WeaponMesh)
 	{
 		WeaponMesh->PlayAnimation(FireAnimation, false);
+	}
+
+	// 탄피 배출
+	if (CasingClass && WeaponMesh && GetWorld())
+	{
+		const USkeletalMeshSocket* AmmoEjectSocket = WeaponMesh->GetSocketByName(TEXT("AmmoEject"));
+		if (AmmoEjectSocket)
+		{
+			// 생성 지점은 AmmoEject 소켓
+			const FTransform SocketTransform = AmmoEjectSocket->GetSocketTransform(WeaponMesh);
+
+			FActorSpawnParameters SpawnParams;
+			GetWorld()->SpawnActor<ACasing>(CasingClass, SocketTransform.GetLocation(), SocketTransform.GetRotation().Rotator(), SpawnParams);
+		}
 	}
 }
 

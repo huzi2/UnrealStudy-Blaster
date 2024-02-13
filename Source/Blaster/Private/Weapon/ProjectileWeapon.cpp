@@ -8,6 +8,9 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 {
 	Super::Fire(HitTarget);
 
+	// 발사체 생성은 서버에서만 한다.
+	if (!HasAuthority()) return;
+
 	if (!ProjectileClass) return;
 
 	UWorld* World = GetWorld();
