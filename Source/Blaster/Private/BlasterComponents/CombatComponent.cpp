@@ -8,6 +8,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "PlayerController/BlasterPlayerController.h"
+#include "HUD/BlasterHUD.h"
 
 UCombatComponent::UCombatComponent()
 	: BaseWalkSpeed(600.f)
@@ -29,6 +31,16 @@ void UCombatComponent::BeginPlay()
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	SetHUDCrosshairs(DeltaTime);
+
+	// 조준점 방향과 무기 방향을 조절하기 위해 조준점 방향을 얻어내기
+	if (Character && Character->IsLocallyControlled())
+	{
+		FHitResult HitResult;
+		TraceUnderCrosshairs(HitResult);
+		HitTarget = HitResult.ImpactPoint;
+	}
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -144,6 +156,72 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 		const FVector End = Start + CrosshairWorldDirection * TRACE_LENGTH;
 
 		GetWorld()->LineTraceSingleByChannel(TraceHitResult, Start, End, ECollisionChannel::ECC_Visibility);
+	}
+}
+
+void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
+{
+	if (!Character) return;
+	if (!Character->Controller) return;
+
+	if (!Controller)
+	{
+		Controller = Cast<ABlasterPlayerController>(Character->Controller);
+	}
+
+	if (Controller)
+	{
+		if (!HUD)
+		{
+			HUD = Cast<ABlasterHUD>(Controller->GetHUD());
+		}
+
+		if (HUD)
+		{
+			FHUDPackage HUDPackage;
+			if (EquippedWeapon)
+			{
+				HUDPackage.CrosshairsCenter = EquippedWeapon->GetCrosshairsCenter();
+				HUDPackage.CrosshairsLeft = EquippedWeapon->GetCrosshairsLeft();
+				HUDPackage.CrosshairsRight = EquippedWeapon->GetCrosshairsRight();
+				HUDPackage.CrosshairsTop = EquippedWeapon->GetCrosshairsTop();
+				HUDPackage.CrosshairsBottom = EquippedWeapon->GetCrosshairsBottom();
+
+				// 캐릭터의 움직임에 따라 조준선이 확산되도록 함
+				if (Character->GetCharacterMovement())
+				{
+					// 이동 속도(0 ~ 600)를 (0 ~ 1) 사이의 값으로 보정
+					const FVector2D WalkSpeedRange(0.f, Character->GetCharacterMovement()->MaxWalkSpeed);
+					const FVector2D VelocityMultiplierRange(0.f, 1.f);
+					FVector Velocity = Character->GetVelocity();
+					Velocity.Z = 0.0;
+
+					CrosshairVelocityFactor = FMath::GetMappedRangeValueClamped(WalkSpeedRange, VelocityMultiplierRange, Velocity.Size());
+
+					// 공중에 있을 때는 더 벌어지도록 함
+					if (Character->GetCharacterMovement()->IsFalling())
+					{
+						CrosshairInAirFactor = FMath::FInterpTo(CrosshairInAirFactor, 2.25, DeltaTime, 2.25);
+					}
+					else
+					{
+						CrosshairInAirFactor = FMath::FInterpTo(CrosshairInAirFactor, 0.0, DeltaTime, 30.0);
+					}
+
+					HUDPackage.CrosshairSpread = CrosshairVelocityFactor + CrosshairInAirFactor;
+				}
+			}
+			else
+			{
+				HUDPackage.CrosshairsCenter = nullptr;
+				HUDPackage.CrosshairsLeft = nullptr;
+				HUDPackage.CrosshairsRight = nullptr;
+				HUDPackage.CrosshairsTop = nullptr;
+				HUDPackage.CrosshairsBottom = nullptr;
+			}
+
+			HUD->SetHUDPackage(HUDPackage);
+		}
 	}
 }
 

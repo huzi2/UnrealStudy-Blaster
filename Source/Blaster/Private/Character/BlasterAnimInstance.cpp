@@ -73,5 +73,15 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		// 계산된 상대적인 위치를 통해 왼손이 소켓의 위치에 정확히 맞도록 업데이트
 		LeftHandTransform.SetLocation(OutPosition);
 		LeftHandTransform.SetRotation(FQuat(OutRotation));
+
+		// 오른손 본을 조준방향으로 맞춰서 총구를 조준방향과 똑같이 설정하도록함
+		// RightHandRotation은 애님BP에서 오른손 본을 수정할 때 사용
+		// 이런 세부설정은 컨트롤하는 클라만 하면됨. 나머지는 할 필요 없다.
+		if (BlasterCharacter->IsLocallyControlled())
+		{
+			bLocallyControlled = true;
+			const FTransform RightHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(TEXT("hand_r"), ERelativeTransformSpace::RTS_World);
+			RightHandRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget()));
+		}
 	}
 }

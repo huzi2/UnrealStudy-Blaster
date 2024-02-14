@@ -139,6 +139,13 @@ AWeapon* ABlasterCharacter::GetEquippedWeapon() const
 	return Combat->EquippedWeapon;
 }
 
+FVector ABlasterCharacter::GetHitTarget() const
+{
+	if(!Combat) return FVector();
+
+	return Combat->HitTarget;
+}
+
 void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
 	// 충돌 처리는 서머만 하도록 해서 이 함수는 서버만 들어옴

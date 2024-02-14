@@ -9,6 +9,8 @@
 constexpr double TRACE_LENGTH = 80000.0;
 
 class AWeapon;
+class ABlasterPlayerController;
+class ABlasterHUD;
 
 // 캐릭터의 무기 관리 컴포넌트
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -42,6 +44,7 @@ public:
 private:
 	void FireButtonPressed(bool bPressed);
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
+	void SetHUDCrosshairs(float DeltaTime);
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -62,6 +65,15 @@ private:
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;
 
+	UPROPERTY()
+	TObjectPtr<ABlasterPlayerController> Controller;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterHUD> HUD;
+
 private:
 	bool bFireButtonPressed;
+	double CrosshairVelocityFactor;
+	double CrosshairInAirFactor;
+	FVector HitTarget;
 };
