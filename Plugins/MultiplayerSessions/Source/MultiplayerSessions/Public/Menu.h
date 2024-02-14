@@ -59,10 +59,10 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> JoinButton;
 
-	
+	UPROPERTY()
+	TObjectPtr<UMultiplayerSessionsSubsystem> MultiplayerSessionsSubsystem;
 
 private:
-	UMultiplayerSessionsSubsystem* MultiplayerSessionsSubsystem;
 	int32 NumPublicConnections;
 	FString MatchType;
 	FString PathToLobby;

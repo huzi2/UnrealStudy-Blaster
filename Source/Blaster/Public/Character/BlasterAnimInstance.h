@@ -61,8 +61,10 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
 	ETurningInPlace TurningInPlace;
 
+	UPROPERTY()
+	TObjectPtr<AWeapon> EquippedWeapon;
+
 private:
-	AWeapon* EquippedWeapon;
 	FRotator DeltaRotation;
 	FRotator CharacterRotationLastFrame;
 	FRotator CharacterRotation;
