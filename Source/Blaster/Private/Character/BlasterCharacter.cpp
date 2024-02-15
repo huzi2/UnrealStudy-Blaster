@@ -11,12 +11,14 @@
 #include "Components/CapsuleComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Character/BlasterAnimInstance.h"
+#include "Blaster/Blaster.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "InputActionValue.h"
 
 ABlasterCharacter::ABlasterCharacter()
+	: CameraThreshlod(200.0)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -45,6 +47,9 @@ ABlasterCharacter::ABlasterCharacter()
 	// 카메라가 메쉬나 캡슐과 충돌해서 줌인되는 것을 방지
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+	// 캡슐이 아닌 메시가 충돌하도록(헤드샷 등의 구현을 위해) 커스텀 오브젝트 채널로 설정
+	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
 
 	TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 
@@ -81,6 +86,9 @@ void ABlasterCharacter::Tick(float DeltaTime)
 
 	// 실시간으로 에임오프셋을 계산
 	AimOffset(DeltaTime);
+
+	// 카메라와 캐릭터가 너무 가까워지면 캐릭터를 숨김
+	HideCameraIfCharacterClose();
 }
 
 void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -122,6 +130,11 @@ void ABlasterCharacter::Jump()
 	{
 		Super::Jump();
 	}
+}
+
+void ABlasterCharacter::MulticastHit_Implementation()
+{
+	PlayHitReactMontage();
 }
 
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
@@ -187,6 +200,22 @@ void ABlasterCharacter::PlayFireMontage(bool bAiming)
 		AnimInstance->Montage_Play(FireWeaponMontage);
 		const FName SectionName = bAiming ? TEXT("RifleAim") : TEXT("RifleHip");
 		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
+
+void ABlasterCharacter::PlayHitReactMontage()
+{
+	if (!Combat) return;
+	if (!Combat->EquippedWeapon) return;
+	if (!GetMesh()) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		AnimInstance->Montage_Play(HitReactMontage);
+		//const FName SectionName = bAiming ? TEXT("RifleAim") : TEXT("RifleHip");
+		//AnimInstance->Montage_JumpToSection(SectionName);
+		AnimInstance->Montage_JumpToSection(TEXT("FromFront"));
 	}
 }
 
@@ -366,6 +395,38 @@ void ABlasterCharacter::TurnInPlace(float DeltaTime)
 		{
 			TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 			StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
+	}
+}
+
+void ABlasterCharacter::HideCameraIfCharacterClose()
+{
+	// 본인 클라만 구현하면됨. 다른 클라들은 캐릭터가 숨겨지면 안됨
+	if (!IsLocallyControlled()) return;
+	if (!FollowCamera) return;
+	if (!GetMesh()) return;
+
+	// 카메라가 너무 가까우면
+	if ((FollowCamera->GetComponentLocation() - GetActorLocation()).Size() < CameraThreshlod)
+	{
+		// 메쉬를 숨김
+		GetMesh()->SetVisibility(false);
+
+		// 무기도 숨김
+		if (Combat && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponMesh())
+		{
+			// Owner가 못보는 옵션
+			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = true;
+		}
+	}
+	else
+	{
+		GetMesh()->SetVisibility(true);
+
+		// 무기도 숨김
+		if (Combat && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponMesh())
+		{
+			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = false;
 		}
 	}
 }

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "HUD/BlasterHUD.h"
 #include "CombatComponent.generated.h"
 
 constexpr double TRACE_LENGTH = 80000.0;
@@ -45,6 +46,7 @@ private:
 	void FireButtonPressed(bool bPressed);
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 	void SetHUDCrosshairs(float DeltaTime);
+	void InterpFOV(float DeltaTime);
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -62,6 +64,12 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float ZoomedFOV;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float ZoomInterpSpeed;
+
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;
 
@@ -73,7 +81,16 @@ private:
 
 private:
 	bool bFireButtonPressed;
+
 	double CrosshairVelocityFactor;
 	double CrosshairInAirFactor;
+	double CrosshairAimFactor;
+	double CrosshairShootingFactor;
+
 	FVector HitTarget;
+
+	float DefaultFOV;
+	float CurrentFOV;
+
+	FHUDPackage HUDPackage;
 };

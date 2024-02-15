@@ -5,6 +5,8 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
+#include "Character/BlasterCharacter.h"
+#include "Blaster/Blaster.h"
 
 AProjectile::AProjectile()
 {
@@ -21,6 +23,8 @@ AProjectile::AProjectile()
 	CollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	// 캐릭터의 캡슐이 아닌 메시를 타겟으로 하기위해 만든 커스텀 오브젝트 채널
+	CollisionBox->SetCollisionResponseToChannel(ECC_SkeletalMesh, ECollisionResponse::ECR_Block);
 
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
 	ProjectileMovementComponent->bRotationFollowsVelocity = true;
@@ -67,6 +71,13 @@ void AProjectile::Destroyed()
 
 void AProjectile::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	// 맞은 캐릭터에게 히트 판정을 한다. OnHit함수는 서버에서만 호출하도록 했으므로 다른 클라들에게도 맞는 모션을 출력하기위해 멀티캐스트로 호출한다.
+	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
+	if (BlasterCharacter)
+	{
+		BlasterCharacter->MulticastHit();
+	}
+
 	// 서버에서는 액터 제거만 호출한다.
 	Destroy();
 }

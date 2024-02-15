@@ -19,15 +19,15 @@ void ABlasterHUD::DrawHUD()
 		const FVector2D ViewportCenter(ViewportSize.X / 2.0, ViewportSize.Y / 2.0);
 		const double SpreadScaled = CrosshairSpreadMax * HUDPackage.CrosshairSpread;
 
-		DrawCrosshair(HUDPackage.CrosshairsCenter, ViewportCenter, {0.f, 0.f});
-		DrawCrosshair(HUDPackage.CrosshairsLeft, ViewportCenter, { -SpreadScaled, 0.f });
-		DrawCrosshair(HUDPackage.CrosshairsRight, ViewportCenter, { SpreadScaled, 0.f });
-		DrawCrosshair(HUDPackage.CrosshairsTop, ViewportCenter, { 0.f, -SpreadScaled });
-		DrawCrosshair(HUDPackage.CrosshairsBottom, ViewportCenter, { 0.f, SpreadScaled });
+		DrawCrosshair(HUDPackage.CrosshairsCenter, ViewportCenter, {0.f, 0.f}, HUDPackage.CrosshairsColor);
+		DrawCrosshair(HUDPackage.CrosshairsLeft, ViewportCenter, { -SpreadScaled, 0.f }, HUDPackage.CrosshairsColor);
+		DrawCrosshair(HUDPackage.CrosshairsRight, ViewportCenter, { SpreadScaled, 0.f }, HUDPackage.CrosshairsColor);
+		DrawCrosshair(HUDPackage.CrosshairsTop, ViewportCenter, { 0.f, -SpreadScaled }, HUDPackage.CrosshairsColor);
+		DrawCrosshair(HUDPackage.CrosshairsBottom, ViewportCenter, { 0.f, SpreadScaled }, HUDPackage.CrosshairsColor);
 	}
 }
 
-void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread)
+void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread, const FLinearColor& CrosshairColor)
 {
 	if (!Texture) return;
 
@@ -35,5 +35,5 @@ void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCe
 	const float TextrueHeight = static_cast<float>(Texture->GetSizeY());
 	const FVector2D TextureDrawPoint(ViewportCenter.X - (TextureWidth / 2.0) + Spread.X, ViewportCenter.Y - (TextrueHeight / 2.0) + Spread.Y);
 
-	DrawTexture(Texture, TextureDrawPoint.X, TextureDrawPoint.Y, TextureWidth, TextrueHeight, 0.f, 0.f, 1.f, 1.f, FLinearColor::White);
+	DrawTexture(Texture, TextureDrawPoint.X, TextureDrawPoint.Y, TextureWidth, TextrueHeight, 0.f, 0.f, 1.f, 1.f, CrosshairColor);
 }

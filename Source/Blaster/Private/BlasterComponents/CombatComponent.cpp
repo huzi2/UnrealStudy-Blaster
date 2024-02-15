@@ -9,11 +9,13 @@
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
 #include "PlayerController/BlasterPlayerController.h"
-#include "HUD/BlasterHUD.h"
+#include "Camera/CameraComponent.h"
 
 UCombatComponent::UCombatComponent()
 	: BaseWalkSpeed(600.f)
 	, AimWalkSpeed(450.f)
+	, ZoomedFOV(30.f)
+	, ZoomInterpSpeed(20.f)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -25,6 +27,12 @@ void UCombatComponent::BeginPlay()
 	if (Character && Character->GetCharacterMovement())
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
+
+		if (Character->GetFollowCamera())
+		{
+			DefaultFOV = Character->GetFollowCamera()->FieldOfView;
+			CurrentFOV = DefaultFOV;
+		}
 	}
 }
 
@@ -32,14 +40,19 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	SetHUDCrosshairs(DeltaTime);
-
-	// 조준점 방향과 무기 방향을 조절하기 위해 조준점 방향을 얻어내기
+	// 아래 기능들은 본인 클라만 구현하면됨
 	if (Character && Character->IsLocallyControlled())
 	{
+		// 조준점 방향과 무기 방향을 조절하기 위해 조준점 방향을 얻어내기
 		FHitResult HitResult;
 		TraceUnderCrosshairs(HitResult);
 		HitTarget = HitResult.ImpactPoint;
+
+		// 조준점 세팅
+		SetHUDCrosshairs(DeltaTime);
+
+		// 무기 줌인 줌아웃
+		InterpFOV(DeltaTime);
 	}
 }
 
@@ -132,6 +145,9 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 		TraceUnderCrosshairs(HitResult);
 
 		ServerFire(HitResult.ImpactPoint);
+
+		// 총을 쏠 때 십자선이 벌어지는 기준
+		CrosshairShootingFactor = 0.75;
 	}
 }
 
@@ -152,10 +168,28 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 	bool bScreenToWorld = UGameplayStatics::DeprojectScreenToWorld(UGameplayStatics::GetPlayerController(this, 0), CrosshairLocation, CrosshairWorldPosition, CrosshairWorldDirection);
 	if (bScreenToWorld)
 	{
-		const FVector& Start = CrosshairWorldPosition;
+		FVector Start = CrosshairWorldPosition;
+
+		// 카메라와 캐릭터 사이의 타겟이 잡히는 문제 수정
+		if (Character)
+		{
+			const double DistanceToCharacter = (Character->GetActorLocation() - Start).Size();
+			Start += CrosshairWorldDirection * (DistanceToCharacter + 100.0);
+		}
+
 		const FVector End = Start + CrosshairWorldDirection * TRACE_LENGTH;
 
 		GetWorld()->LineTraceSingleByChannel(TraceHitResult, Start, End, ECollisionChannel::ECC_Visibility);
+
+		// 라인으로 찾은 액터에 인터페이스가 구현되어있는지 확인
+		if (TraceHitResult.GetActor() && TraceHitResult.GetActor()->Implements<UInteractWithCrosshairsInterface>())
+		{
+			HUDPackage.CrosshairsColor = FLinearColor::Red;
+		}
+		else
+		{
+			HUDPackage.CrosshairsColor = FLinearColor::White;
+		}
 	}
 }
 
@@ -178,7 +212,6 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 
 		if (HUD)
 		{
-			FHUDPackage HUDPackage;
 			if (EquippedWeapon)
 			{
 				HUDPackage.CrosshairsCenter = EquippedWeapon->GetCrosshairsCenter();
@@ -208,7 +241,21 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 						CrosshairInAirFactor = FMath::FInterpTo(CrosshairInAirFactor, 0.0, DeltaTime, 30.0);
 					}
 
-					HUDPackage.CrosshairSpread = CrosshairVelocityFactor + CrosshairInAirFactor;
+					// 조준 중에는 더 좁혀지도록 함
+					if (bAiming)
+					{
+						CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, 0.58, DeltaTime, 30.0);
+					}
+					else
+					{
+						CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, 0.0, DeltaTime, 30.0);
+					}
+
+					// 총을 쏘면 Fire에서 즉시 값을 늘리고 여기서 0까지 줄어들게함
+					CrosshairShootingFactor = FMath::FInterpTo(CrosshairShootingFactor, 0.0, DeltaTime, 20.0);
+
+					// 조준점 벌어짐은 기본값 + 이동으로 변한값 + 공중에 있을때 추가값 - 조준으로 줄어든값 + 총쏠때 추가값
+					HUDPackage.CrosshairSpread = 0.5f + CrosshairVelocityFactor + CrosshairInAirFactor - CrosshairAimFactor + CrosshairShootingFactor;
 				}
 			}
 			else
@@ -223,6 +270,26 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 			HUD->SetHUDPackage(HUDPackage);
 		}
 	}
+}
+
+void UCombatComponent::InterpFOV(float DeltaTime)
+{
+	if (!EquippedWeapon) return;
+	if (!Character) return;
+	if (!Character->GetFollowCamera()) return;
+
+	// 조준할 때는 무기의 Zoom 변수를 적용해서 확대
+	if (bAiming)
+	{
+		CurrentFOV = FMath::FInterpTo(CurrentFOV, EquippedWeapon->GetZoomedFOV(), DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+	}
+	// 다시 돌아갈 때는 기본값으로 지정된 변수로 줌아웃
+	else
+	{
+		CurrentFOV = FMath::FInterpTo(CurrentFOV, DefaultFOV, DeltaTime, ZoomInterpSpeed);
+	}
+
+	Character->GetFollowCamera()->SetFieldOfView(CurrentFOV);
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "BlasterTypes/TurningInPlace.h"
+#include "Interfaces/InteractWithCrosshairsInterface.h"
 #include "BlasterCharacter.generated.h"
 
 class USpringArmComponent;
@@ -17,7 +18,7 @@ class UInputAction;
 struct FInputActionValue;
 
 UCLASS()
-class BLASTER_API ABlasterCharacter : public ACharacter
+class BLASTER_API ABlasterCharacter : public ACharacter, public IInteractWithCrosshairsInterface
 {
 	GENERATED_BODY()
 
@@ -32,11 +33,17 @@ private:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 	virtual void Jump() final;
 
+public:
+	// 맞는 모션 출력하는 건 해도되고 안해도됨 그래서 Unreliable
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastHit();
+
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 
 public:
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
@@ -47,6 +54,7 @@ public:
 	bool IsWeaponEquipped() const;
 	bool IsAiming() const;
 	void PlayFireMontage(bool bAiming);
+	void PlayHitReactMontage();
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -62,6 +70,7 @@ private:
 
 	void AimOffset(float DeltaTime);
 	void TurnInPlace(float DeltaTime);
+	void HideCameraIfCharacterClose();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -69,6 +78,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<UCameraComponent> FollowCamera;
+
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	double CameraThreshlod;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UWidgetComponent> OverheadWidget;
@@ -84,6 +96,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TObjectPtr<UAnimMontage> FireWeaponMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TObjectPtr<UAnimMontage> HitReactMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;

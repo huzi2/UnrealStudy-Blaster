@@ -49,6 +49,8 @@ public:
 	FORCEINLINE UTexture2D* GetCrosshairsRight() const { return CrosshairsRight; }
 	FORCEINLINE UTexture2D* GetCrosshairsTop() const { return CrosshairsTop; }
 	FORCEINLINE UTexture2D* GetCrosshairsBottom() const { return CrosshairsBottom; }
+	FORCEINLINE float GetZoomedFOV() const { return ZoomedFOV; }
+	FORCEINLINE float GetZoomInterpSpeed() const { return ZoomInterpSpeed; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 
@@ -88,4 +90,10 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Crosshairs")
 	TObjectPtr<UTexture2D> CrosshairsBottom;
+
+	UPROPERTY(EditAnywhere, Category = "Zoom")
+	float ZoomedFOV;
+
+	UPROPERTY(EditAnywhere, Category = "Zoom")
+	float ZoomInterpSpeed;
 };
