@@ -1,5 +1,7 @@
 # UnrealStudy-Blaster
 
+<img width="765" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/3beb7b00-3725-408b-8668-06671b06e428">
+
 ## 프로젝트 개요
 
 - 언리얼 5.3 C++을 활용한 멀티플레이 FPS 게임
