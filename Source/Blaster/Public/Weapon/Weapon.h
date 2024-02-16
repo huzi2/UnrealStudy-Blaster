@@ -51,6 +51,8 @@ public:
 	FORCEINLINE UTexture2D* GetCrosshairsBottom() const { return CrosshairsBottom; }
 	FORCEINLINE float GetZoomedFOV() const { return ZoomedFOV; }
 	FORCEINLINE float GetZoomInterpSpeed() const { return ZoomInterpSpeed; }
+	FORCEINLINE bool IsAutomatic() const { return bAutomatic; }
+	FORCEINLINE float GetFireDelay() const { return FireDelay; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 
@@ -96,4 +98,10 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Zoom")
 	float ZoomInterpSpeed;
+
+	UPROPERTY(EditAnywhere, Category = "Automatic")
+	bool bAutomatic;
+
+	UPROPERTY(EditAnywhere, Category = "Automatic")
+	float FireDelay;
 };

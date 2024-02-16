@@ -19,6 +19,7 @@
 
 ABlasterCharacter::ABlasterCharacter()
 	: CameraThreshlod(200.0)
+	, TurnThreshold(0.5f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -84,8 +85,22 @@ void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 실시간으로 에임오프셋을 계산
-	AimOffset(DeltaTime);
+	// 스스로 제어하거나 서버일 경우 에임따라 상체가 움직임
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
+	{
+		// 실시간으로 에임오프셋을 계산
+		AimOffset(DeltaTime);
+	}
+	else
+	{
+		// 움직임이 너무 오래 갱신이 안되면 직접 갱신함
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedMovement();
+		}
+		CalculateAO_Pitch();
+	}
 
 	// 카메라와 캐릭터가 너무 가까워지면 캐릭터를 숨김
 	HideCameraIfCharacterClose();
@@ -130,6 +145,19 @@ void ABlasterCharacter::Jump()
 	{
 		Super::Jump();
 	}
+}
+
+void ABlasterCharacter::OnRep_ReplicatedMovement()
+{
+	// 매 틱마다 넷업데이트가 이루어지지않는다.
+	// 그래서 이동에 관련된 틱 관련 계산은 이곳에서 해서 무브먼트가 갱신될 때마다 적용시킬 수 있다.
+	Super::OnRep_ReplicatedMovement();
+
+	// Tick에서 서버와 자신의 클라는 에임따라 상체가 따로 움직이지만
+	// 나머지 클라들은 루트본은 움직이지 않고 에임따라 전체 회전 시킨다.
+	// 무브먼트와 관련된 계산이므로 Tick에서 하는게 아니라 여기서 진행
+	SimProxiesTurn();
+	TimeSinceLastMovementReplication = 0.f;
 }
 
 void ABlasterCharacter::MulticastHit_Implementation()
@@ -327,15 +355,15 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 	if (!Combat->EquippedWeapon) return;
 	if (!GetCharacterMovement()) return;
 
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.0;
-	const float Speed = Velocity.Size();
+	const double Speed = CaculateSpeed();
 	const bool bIsInAir = GetCharacterMovement()->IsFalling();
 
 	// 가만히 서 있을때는 상하좌우 다 조준 가능
-	if (Speed == 0.f && !bIsInAir)
+	if (Speed == 0.0 && !bIsInAir)
 	{
 		bUseControllerRotationYaw = true;
+		// 루트본을 움직여서 하체는 가만히 있고 상체가 바라보는 방향으로 움직이도록 한다.
+		bRotateRootBone = true;
 
 		FRotator CurrentAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
@@ -350,9 +378,10 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 		TurnInPlace(DeltaTime);
 	}
 	// 뛰거나 점프할 때는 위아래로만 조준 가능
-	if (Speed > 0.f || bIsInAir)
+	if (Speed > 0.0 || bIsInAir)
 	{
 		bUseControllerRotationYaw = true;
+		bRotateRootBone = false;
 
 		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
@@ -360,16 +389,46 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 	}
 
-	AO_Pitch = GetBaseAimRotation().Pitch;
+	// 위아래 계산
+	CalculateAO_Pitch();
+}
 
-	// 피치값의 경우 -90 ~ 0도는 서버 패킷으로 전송되는 과정에서 270 ~ 360도로 변경된다.
-	// 그래서 자신이 컨트롤하는 캐릭터 외의 캐릭터의 피치값은 보정을 해준다.
-	if (AO_Pitch > 90.f && !IsLocallyControlled())
+void ABlasterCharacter::SimProxiesTurn()
+{
+	if (!Combat) return;
+	if (!Combat->EquippedWeapon) return;
+
+	bRotateRootBone = false;
+
+	const double Speed = CaculateSpeed();
+	if (Speed > 0.0)
 	{
-		const FVector2D InRange(270.f, 360.f);
-		const FVector2D OutRange(-90.f, 0.f);
-		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		return;
 	}
+
+	// 일정 각도 이상 회전하면 회전 애니메이션을 실행
+	ProxyRotationLastFrame = ProxyRotation;
+	ProxyRotation = GetActorRotation();
+	ProxyYaw = UKismetMathLibrary::NormalizedDeltaRotator(ProxyRotation, ProxyRotationLastFrame).Yaw;
+
+	if (FMath::Abs(ProxyYaw) > TurnThreshold)
+	{
+		if (ProxyYaw > TurnThreshold)
+		{
+			TurningInPlace = ETurningInPlace::ETIP_Right;
+		}
+		else if (ProxyYaw < -TurnThreshold)
+		{
+			TurningInPlace = ETurningInPlace::ETIP_Left;
+		}
+		else
+		{
+			TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		}
+		return;
+	}
+	TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 }
 
 void ABlasterCharacter::TurnInPlace(float DeltaTime)
@@ -429,6 +488,27 @@ void ABlasterCharacter::HideCameraIfCharacterClose()
 			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = false;
 		}
 	}
+}
+
+void ABlasterCharacter::CalculateAO_Pitch()
+{
+	AO_Pitch = GetBaseAimRotation().Pitch;
+
+	// 피치값의 경우 -90 ~ 0도는 서버 패킷으로 전송되는 과정에서 270 ~ 360도로 변경된다.
+	// 그래서 자신이 컨트롤하는 캐릭터 외의 캐릭터의 피치값은 보정을 해준다.
+	if (AO_Pitch > 90.f && !IsLocallyControlled())
+	{
+		const FVector2D InRange(270.f, 360.f);
+		const FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+
+double ABlasterCharacter::CaculateSpeed() const
+{
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.0;
+	return Velocity.Size();
 }
 
 void ABlasterCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)

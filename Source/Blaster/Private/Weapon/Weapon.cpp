@@ -11,6 +11,8 @@
 AWeapon::AWeapon()
 	: ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
+	, bAutomatic(true)
+	, FireDelay(0.15f)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	// 리플리케이션을 켜서 서버의 내용을 클라가 모두 복제하도록함

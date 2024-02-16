@@ -36,6 +36,7 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bAiming = BlasterCharacter->IsAiming();
 	TurningInPlace = BlasterCharacter->GetTurningInPlace();
 	EquippedWeapon = BlasterCharacter->GetEquippedWeapon();
+	bRotateRootBone = BlasterCharacter->ShouldRotateRootBone();
 
 	// 무기를 든 상태에서 좌우 이동 처리
 	const FRotator& AimRotation = BlasterCharacter->GetBaseAimRotation();

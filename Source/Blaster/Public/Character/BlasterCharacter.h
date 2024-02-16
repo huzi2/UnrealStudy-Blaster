@@ -32,6 +32,7 @@ private:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 	virtual void Jump() final;
+	virtual void OnRep_ReplicatedMovement() final;
 
 public:
 	// 맞는 모션 출력하는 건 해도되고 안해도됨 그래서 Unreliable
@@ -47,6 +48,7 @@ public:
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
+	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
 
@@ -69,8 +71,11 @@ private:
 	void FireButtonReleased();
 
 	void AimOffset(float DeltaTime);
+	void SimProxiesTurn();
 	void TurnInPlace(float DeltaTime);
 	void HideCameraIfCharacterClose();
+	void CalculateAO_Pitch();
+	double CaculateSpeed() const;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -136,4 +141,12 @@ private:
 	float AO_Pitch;
 	FRotator StartingAimRotation;
 	ETurningInPlace TurningInPlace;
+	
+	bool bRotateRootBone;
+
+	double TurnThreshold;
+	FRotator ProxyRotationLastFrame;
+	FRotator ProxyRotation;
+	double ProxyYaw;
+	float TimeSinceLastMovementReplication;
 };

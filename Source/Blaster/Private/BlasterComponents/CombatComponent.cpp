@@ -10,12 +10,14 @@
 #include "DrawDebugHelpers.h"
 #include "PlayerController/BlasterPlayerController.h"
 #include "Camera/CameraComponent.h"
+#include "TimerManager.h"
 
 UCombatComponent::UCombatComponent()
 	: BaseWalkSpeed(600.f)
 	, AimWalkSpeed(450.f)
 	, ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
+	, bCanFire(true)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -141,13 +143,7 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	// 서버에서 발사를 처리. 그냥 여기에서 처리하면 해당 클라이언트에서만 보임
 	if (bFireButtonPressed)
 	{
-		FHitResult HitResult;
-		TraceUnderCrosshairs(HitResult);
-
-		ServerFire(HitResult.ImpactPoint);
-
-		// 총을 쏠 때 십자선이 벌어지는 기준
-		CrosshairShootingFactor = 0.75;
+		Fire();
 	}
 }
 
@@ -290,6 +286,41 @@ void UCombatComponent::InterpFOV(float DeltaTime)
 	}
 
 	Character->GetFollowCamera()->SetFieldOfView(CurrentFOV);
+}
+
+void UCombatComponent::Fire()
+{
+	if (!bCanFire) return;
+
+	bCanFire = false;
+
+	ServerFire(HitTarget);
+
+	// 총을 쏠 때 십자선이 벌어지는 기준
+	CrosshairShootingFactor = 0.75;
+
+	// 총을 발사하면 일정 시간 동안 지속 발사
+	StartFireTimer();
+}
+
+void UCombatComponent::StartFireTimer()
+{
+	if (!EquippedWeapon) return;
+	if (!Character) return;
+
+	// 버튼을 누르는 동안 연사하도록함
+	Character->GetWorldTimerManager().SetTimer(FireTimer, this, &ThisClass::FireTimerFinished, EquippedWeapon->GetFireDelay());
+}
+
+void UCombatComponent::FireTimerFinished()
+{
+	if (!EquippedWeapon) return;
+	// FireDelay가 끝나고 버튼을 누른 상태면 다시 쏜다. 그래서 연사가 됨
+	bCanFire = true;
+	if (bFireButtonPressed && EquippedWeapon->IsAutomatic())
+	{
+		Fire();
+	}
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()

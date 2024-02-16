@@ -47,6 +47,9 @@ private:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 	void SetHUDCrosshairs(float DeltaTime);
 	void InterpFOV(float DeltaTime);
+	void Fire();
+	void StartFireTimer();
+	void FireTimerFinished();
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -93,4 +96,7 @@ private:
 	float CurrentFOV;
 
 	FHUDPackage HUDPackage;
+
+	bool bCanFire;
+	FTimerHandle FireTimer;
 };
