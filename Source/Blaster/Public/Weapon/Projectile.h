@@ -15,17 +15,21 @@ class BLASTER_API AProjectile : public AActor
 {
 	GENERATED_BODY()
 	
-private:
+protected:
 	AProjectile();
 
-private:
-	virtual void BeginPlay() final;
-	virtual void Tick(float DeltaTime) final;
-	virtual void Destroyed() final;
+protected:
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
+	virtual void Destroyed() override;
 
-private:
+protected:
 	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+protected:
+	UPROPERTY(EditAnywhere)
+	float Damage;
 
 private:
 	UPROPERTY(EditAnywhere)

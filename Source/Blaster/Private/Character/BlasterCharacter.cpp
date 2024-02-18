@@ -12,6 +12,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Character/BlasterAnimInstance.h"
 #include "Blaster/Blaster.h"
+#include "PlayerController/BlasterPlayerController.h"
+#include "GameMode/BlasterGameMode.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -19,6 +21,8 @@
 
 ABlasterCharacter::ABlasterCharacter()
 	: CameraThreshlod(200.0)
+	, MaxHealth(100.f)
+	, Health(100.f)
 	, TurnThreshold(0.5f)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -68,6 +72,15 @@ void ABlasterCharacter::BeginPlay()
 		{
 			Subsystem->AddMappingContext(DefaultInputMappingContext, 0);
 		}
+	}
+
+	BlasterPlayerController = Cast<ABlasterPlayerController>(Controller);
+	UpdateHUDHealth();
+
+	// 데미지 처리는 서버만
+	if (HasAuthority())
+	{
+		OnTakeAnyDamage.AddDynamic(this, &ThisClass::ReceiveDamage);
 	}
 }
 
@@ -133,6 +146,8 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 
 	// COND_OwnerOnly은 객체 소유자만 레플리케이트 되도록함
 	DOREPLIFETIME_CONDITION(ABlasterCharacter, OverlappingWeapon, COND_OwnerOnly);
+
+	DOREPLIFETIME(ABlasterCharacter, Health);
 }
 
 void ABlasterCharacter::Jump()
@@ -160,16 +175,35 @@ void ABlasterCharacter::OnRep_ReplicatedMovement()
 	TimeSinceLastMovementReplication = 0.f;
 }
 
-void ABlasterCharacter::MulticastHit_Implementation()
-{
-	PlayHitReactMontage();
-}
-
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 {
 	if (Combat)
 	{
 		Combat->EquipWeapon(OverlappingWeapon);
+	}
+}
+
+void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
+{
+	// 데미지 처리는 서버에서만 수행됨. 여기 내용들은 서버에서 실행된다.
+	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+
+	UpdateHUDHealth();
+	PlayHitReactMontage();
+
+	// 체력이 0이되면 게임모드에서 캐릭터 제거
+	// 게임모드는 오로지 서버에만 존재하기에 클라에서 호출하면 null이다.
+	// 어차피 데미지 처리 자체가 서버에서만 호출되기는함..
+	if (Health == 0.f)
+	{
+		if (GetWorld())
+		{
+			if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
+			{
+				ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
+				BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
+			}
+		}
 	}
 }
 
@@ -245,6 +279,11 @@ void ABlasterCharacter::PlayHitReactMontage()
 		//AnimInstance->Montage_JumpToSection(SectionName);
 		AnimInstance->Montage_JumpToSection(TEXT("FromFront"));
 	}
+}
+
+void ABlasterCharacter::Elim()
+{
+
 }
 
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
@@ -511,6 +550,14 @@ double ABlasterCharacter::CaculateSpeed() const
 	return Velocity.Size();
 }
 
+void ABlasterCharacter::UpdateHUDHealth()
+{
+	if (BlasterPlayerController)
+	{
+		BlasterPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+
 void ABlasterCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
 	// 레플리케이트되기 전 무기는 감춘다
@@ -524,4 +571,12 @@ void ABlasterCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	{
 		OverlappingWeapon->ShowPickupWidget(true);
 	}
+}
+
+void ABlasterCharacter::OnRep_Health()
+{
+	// 데미지 처리되면서 Health가 변경되고 레플리케이션 되면서 여기 함수가 호출된다.
+	// 서버에서 데미지 처리하면서 하는 내용들을 클라에서도 똑같이 함
+	UpdateHUDHealth();
+	PlayHitReactMontage();
 }

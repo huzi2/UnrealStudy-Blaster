@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "BlasterPlayerController.generated.h"
 
+class ABlasterHUD;
 /**
  * 
  */
@@ -13,5 +14,13 @@ UCLASS()
 class BLASTER_API ABlasterPlayerController : public APlayerController
 {
 	GENERATED_BODY()
-	
+
+private:
+	virtual void BeginPlay() final;
+
+public:
+	void SetHUDHealth(float Health, float MaxHealth);
+
+private:
+	TObjectPtr<ABlasterHUD> BlasterHUD;
 };

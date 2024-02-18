@@ -13,6 +13,7 @@ class UCameraComponent;
 class UWidgetComponent;
 class UCombatComponent;
 class AWeapon;
+class ABlasterPlayerController;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
@@ -34,14 +35,12 @@ private:
 	virtual void Jump() final;
 	virtual void OnRep_ReplicatedMovement() final;
 
-public:
-	// 맞는 모션 출력하는 건 해도되고 안해도됨 그래서 Unreliable
-	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastHit();
-
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
+
+	UFUNCTION()
+	void ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser);
 
 public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
@@ -57,6 +56,7 @@ public:
 	bool IsAiming() const;
 	void PlayFireMontage(bool bAiming);
 	void PlayHitReactMontage();
+	void Elim();
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -76,6 +76,7 @@ private:
 	void HideCameraIfCharacterClose();
 	void CalculateAO_Pitch();
 	double CaculateSpeed() const;
+	void UpdateHUDHealth();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -104,6 +105,15 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TObjectPtr<UAnimMontage> HitReactMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	float MaxHealth;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")
+	float Health;
+
+	UFUNCTION()
+	void OnRep_Health();
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
@@ -134,6 +144,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> FireInputAction;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterPlayerController> BlasterPlayerController;
 
 private:
 	float AO_Yaw;

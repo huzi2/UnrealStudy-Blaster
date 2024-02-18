@@ -9,6 +9,7 @@
 #include "Blaster/Blaster.h"
 
 AProjectile::AProjectile()
+	: Damage(20.f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 생성은 서버에서만 진행하고 클라들은 복사본만 얻어옴
@@ -71,13 +72,6 @@ void AProjectile::Destroyed()
 
 void AProjectile::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	// 맞은 캐릭터에게 히트 판정을 한다. OnHit함수는 서버에서만 호출하도록 했으므로 다른 클라들에게도 맞는 모션을 출력하기위해 멀티캐스트로 호출한다.
-	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacter)
-	{
-		BlasterCharacter->MulticastHit();
-	}
-
 	// 서버에서는 액터 제거만 호출한다.
 	Destroy();
 }

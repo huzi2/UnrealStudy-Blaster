@@ -1,10 +1,19 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "HUD/BlasterHUD.h"
+#include "GameFramework/PlayerController.h"
+#include "HUD/CharacterOverlay.h"
 
 ABlasterHUD::ABlasterHUD()
 	: CrosshairSpreadMax(16.0)
 {
+}
+
+void ABlasterHUD::BeginPlay()
+{
+	Super::BeginPlay();
+
+	AddCharacterOverlay();
 }
 
 void ABlasterHUD::DrawHUD()
@@ -25,6 +34,17 @@ void ABlasterHUD::DrawHUD()
 		DrawCrosshair(HUDPackage.CrosshairsTop, ViewportCenter, { 0.f, -SpreadScaled }, HUDPackage.CrosshairsColor);
 		DrawCrosshair(HUDPackage.CrosshairsBottom, ViewportCenter, { 0.f, SpreadScaled }, HUDPackage.CrosshairsColor);
 	}
+}
+
+void ABlasterHUD::AddCharacterOverlay()
+{
+	if (!CharacterOverlayClass) return;
+
+	APlayerController * PlayerController = GetOwningPlayerController();
+	if (!PlayerController) return;
+
+	CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
+	CharacterOverlay->AddToViewport();
 }
 
 void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread, const FLinearColor& CrosshairColor)
