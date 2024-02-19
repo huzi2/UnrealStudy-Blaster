@@ -3,8 +3,34 @@
 #include "GameMode/BlasterGameMode.h"
 #include "Character/BlasterCharacter.h"
 #include "PlayerController/BlasterPlayerController.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerStart.h"
 
 void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
 {
+	if (ElimmedCharacter)
+	{
+		ElimmedCharacter->Elim();
+	}
+}
 
+void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController)
+{
+	if (ElimmedCharacter)
+	{
+		// 캐릭터에서 컨트롤러 분리
+		ElimmedCharacter->Reset();
+		// 캐릭터 제거
+		ElimmedCharacter->Destroy();
+	}
+
+	if (ElimmedController)
+	{
+		// 모든 플레이어스타트 객체 중 하나를 랜덤으로 선택해서 리스폰
+		TArray<AActor*> PlayerStarts;
+		UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
+		const int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
+
+		RestartPlayerAtPlayerStart(ElimmedController, PlayerStarts[Selection]);
+	}
 }

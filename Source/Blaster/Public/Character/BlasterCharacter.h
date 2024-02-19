@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "BlasterTypes/TurningInPlace.h"
 #include "Interfaces/InteractWithCrosshairsInterface.h"
+#include "Components/TimelineComponent.h"
 #include "BlasterCharacter.generated.h"
 
 class USpringArmComponent;
@@ -35,6 +36,10 @@ private:
 	virtual void Jump() final;
 	virtual void OnRep_ReplicatedMovement() final;
 
+public:
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastElim();
+
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
@@ -42,12 +47,16 @@ private:
 	UFUNCTION()
 	void ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser);
 
+	UFUNCTION()
+	void UpdateDissolveMaterial(float DissolveValue);
+
 public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
+	FORCEINLINE bool IsElimmed() const { return bElimmed; }
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
 
@@ -56,6 +65,7 @@ public:
 	bool IsAiming() const;
 	void PlayFireMontage(bool bAiming);
 	void PlayHitReactMontage();
+	void PlayElimMontage();
 	void Elim();
 
 private:
@@ -77,6 +87,8 @@ private:
 	void CalculateAO_Pitch();
 	double CaculateSpeed() const;
 	void UpdateHUDHealth();
+	void ElimTimerFinished();
+	void StartDissolve();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -106,6 +118,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TObjectPtr<UAnimMontage> HitReactMontage;
 
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TObjectPtr<UAnimMontage> ElimMontage;
+
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	float MaxHealth;
 
@@ -114,6 +129,21 @@ private:
 
 	UFUNCTION()
 	void OnRep_Health();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Elim")
+	float ElimDelay;
+
+	UPROPERTY(VisibleAnywhere, Category = "Elim")
+	TObjectPtr<UTimelineComponent> DissolveTimeline;
+
+	UPROPERTY(EditAnywhere, Category = "Elim")
+	TObjectPtr<UCurveFloat> DissolveCurve;
+
+	UPROPERTY(VisibleAnywhere, Category = "Elim")
+	TObjectPtr<UMaterialInstanceDynamic> DynamicDissolveMaterialInstance;
+
+	UPROPERTY(EditAnywhere, Category = "Elim")
+	TObjectPtr<UMaterialInstance> DissolveMaterialInstance;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
@@ -162,4 +192,8 @@ private:
 	FRotator ProxyRotation;
 	double ProxyYaw;
 	float TimeSinceLastMovementReplication;
+
+	bool bElimmed;
+	FTimerHandle ElimTimer;
+	FOnTimelineFloat DissolveTrack;
 };

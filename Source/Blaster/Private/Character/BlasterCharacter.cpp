@@ -14,6 +14,7 @@
 #include "Blaster/Blaster.h"
 #include "PlayerController/BlasterPlayerController.h"
 #include "GameMode/BlasterGameMode.h"
+#include "TimerManager.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -23,10 +24,15 @@ ABlasterCharacter::ABlasterCharacter()
 	: CameraThreshlod(200.0)
 	, MaxHealth(100.f)
 	, Health(100.f)
+	, ElimDelay(3.f)
 	, TurnThreshold(0.5f)
+	, bElimmed(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
+
+	// 리스폰 시 겹치더라도 무조건 스폰
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetMesh());
@@ -45,6 +51,8 @@ ABlasterCharacter::ABlasterCharacter()
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("Combat"));
 	Combat->SetIsReplicated(true);
+
+	DissolveTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimeline"));
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0, 0.0, 850.0);
@@ -175,6 +183,25 @@ void ABlasterCharacter::OnRep_ReplicatedMovement()
 	TimeSinceLastMovementReplication = 0.f;
 }
 
+void ABlasterCharacter::MulticastElim_Implementation()
+{
+	// 죽음 처리 자체는 게임모드에서 서버가 처리해줌
+	// 죽으면서 수행해야하는 작업은 모든 클라가 해야되서 멀티캐스트로 함수 생성
+	bElimmed = true;
+	PlayElimMontage();
+
+	// 죽을 때 사라지는 이펙트를 위해 머티리얼 인스턴스를 생성 후 적용
+	if (GetMesh() && DissolveMaterialInstance)
+	{
+		DynamicDissolveMaterialInstance = UMaterialInstanceDynamic::Create(DissolveMaterialInstance, this);
+		GetMesh()->SetMaterial(0, DynamicDissolveMaterialInstance);
+		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Glow"), 200.f);
+	}
+
+	StartDissolve();
+}
+
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 {
 	if (Combat)
@@ -204,6 +231,14 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 				BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
 			}
 		}
+	}
+}
+
+void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
+{
+	if (DynamicDissolveMaterialInstance)
+	{
+		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
 	}
 }
 
@@ -281,9 +316,23 @@ void ABlasterCharacter::PlayHitReactMontage()
 	}
 }
 
+void ABlasterCharacter::PlayElimMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ElimMontage)
+	{
+		AnimInstance->Montage_Play(ElimMontage);
+	}
+}
+
 void ABlasterCharacter::Elim()
 {
+	// 캐릭터가 죽는 처리는 서버에서 행한다.
+	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
+	MulticastElim();
 
+	// 캐릭터 부활을 위해 타이머 설정
+	GetWorldTimerManager().SetTimer(ElimTimer, this, &ThisClass::ElimTimerFinished, ElimDelay);
 }
 
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
@@ -555,6 +604,27 @@ void ABlasterCharacter::UpdateHUDHealth()
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+
+void ABlasterCharacter::ElimTimerFinished()
+{
+	// 게임모드에서 캐릭터 부활 요청. 게임모드는 서버에만 존재해서 서버에서만 처리될 것
+	if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
+	{
+		BlasterGameMode->RequestRespawn(this, Controller);
+	}
+}
+
+void ABlasterCharacter::StartDissolve()
+{
+	// 캐릭터가 죽고 사라지는 이펙트(머티리얼에 커브값을 줌)
+	DissolveTrack.BindDynamic(this, &ThisClass::UpdateDissolveMaterial);
+	
+	if (DissolveTimeline && DissolveCurve)
+	{
+		DissolveTimeline->AddInterpFloat(DissolveCurve, DissolveTrack);
+		DissolveTimeline->Play();
 	}
 }
 

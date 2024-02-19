@@ -102,6 +102,8 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!Character || !WeaponToEquip) return;
 
+	bCanFire = true;
+
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 
@@ -325,6 +327,7 @@ void UCombatComponent::FireTimerFinished()
 
 void UCombatComponent::OnRep_EquippedWeapon()
 {
+	bCanFire = true;
 	// 다른 클라이언트에서도 무기들었을 때 회전하지 않도록 함
 	if (EquippedWeapon && Character)
 	{
