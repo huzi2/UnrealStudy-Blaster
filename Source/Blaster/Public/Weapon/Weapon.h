@@ -55,6 +55,7 @@ public:
 	FORCEINLINE float GetFireDelay() const { return FireDelay; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
+	void Dropped();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")

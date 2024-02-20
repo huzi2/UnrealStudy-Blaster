@@ -19,6 +19,8 @@ class BLASTER_API UCharacterOverlay : public UUserWidget
 public:
 	FORCEINLINE UProgressBar* GetHealthBar() const { return HealthBar; }
 	FORCEINLINE UTextBlock* GetHealthText() const { return HealthText; }
+	FORCEINLINE UTextBlock* GetScoreAmount() const { return ScoreAmount; }
+	FORCEINLINE UTextBlock* GetDefeatsAmount() const { return DefeatsAmount; }
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -26,4 +28,10 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> HealthText;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> ScoreAmount;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> DefeatsAmount;
 };

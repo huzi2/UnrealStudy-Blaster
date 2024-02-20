@@ -15,6 +15,10 @@
 #include "PlayerController/BlasterPlayerController.h"
 #include "GameMode/BlasterGameMode.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "PlayerState/BlasterPlayerState.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -83,6 +87,11 @@ void ABlasterCharacter::BeginPlay()
 	}
 
 	BlasterPlayerController = Cast<ABlasterPlayerController>(Controller);
+
+	// 게임 시작할 때 체력 초기화
+	// 하지만 게임 중에 캐릭터가 제거되고 재생성될 때는 컨트롤러가 연결되지 않은 상태에서 생성되서 이부분이 호출안될 수도 있다.
+	// 그래서 게임 중 재생성에 대해서는 컨트롤러의 OnPossess()에서 처리한다.
+	// 근데 여기에 이 함수를 남겨두는 건 최초 실행할 때는 컨트롤러보다 UI가 나중에 생성되면 OnPossess()가 의미가 없기 때문
 	UpdateHUDHealth();
 
 	// 데미지 처리는 서버만
@@ -106,6 +115,10 @@ void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// 플레이어스테이트의 초기화 타이밍이 애매해서 Tick에서 초기화함
+	// 내부에서 플레이어스테이트가 최초로 생성될 때만 초기화하도록 해놨음
+	PollInit();
+
 	// 스스로 제어하거나 서버일 경우 에임따라 상체가 움직임
 	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
 	{
@@ -125,6 +138,18 @@ void ABlasterCharacter::Tick(float DeltaTime)
 
 	// 카메라와 캐릭터가 너무 가까워지면 캐릭터를 숨김
 	HideCameraIfCharacterClose();
+}
+
+void ABlasterCharacter::Destroyed()
+{
+	Super::Destroyed();
+
+	// 원래 기존 제거 타이머가 끝나면 호출한다. 하지만 이러면 서버에서만 제거됨
+	// 클라이언트에서는 캐릭터와 같이 제거하도록함
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
+	}
 }
 
 void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -200,6 +225,38 @@ void ABlasterCharacter::MulticastElim_Implementation()
 	}
 
 	StartDissolve();
+
+	// 무브먼트 제거
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->DisableMovement();
+		GetCharacterMovement()->StopMovementImmediately();
+	}
+
+	// 입력 제거
+	DisableInput(BlasterPlayerController);
+
+	// 충돌 제거
+	if (GetCapsuleComponent())
+	{
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	if (GetMesh())
+	{
+		GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	// 머리에 로봇 생성 효과
+	if (ElimBotEffect)
+	{
+		const FVector ElimBotSpawnPoint(GetActorLocation().X, GetActorLocation().Y, GetActorLocation().Z + 200.0);
+		ElimBotComponent = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ElimBotEffect, ElimBotSpawnPoint, GetActorRotation());
+	}
+
+	if (ElimBotSound)
+	{
+		UGameplayStatics::SpawnSoundAtLocation(this, ElimBotSound, GetActorLocation());
+	}
 }
 
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
@@ -228,6 +285,11 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 			if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
 			{
 				ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
+				if (!BlasterPlayerController)
+				{
+					BlasterPlayerController = Cast<ABlasterPlayerController>(Controller);
+				}
+
 				BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
 			}
 		}
@@ -328,6 +390,12 @@ void ABlasterCharacter::PlayElimMontage()
 void ABlasterCharacter::Elim()
 {
 	// 캐릭터가 죽는 처리는 서버에서 행한다.
+	// 무기를 떨어뜨리는 처리
+	if (Combat && Combat->EquippedWeapon)
+	{
+		Combat->EquippedWeapon->Dropped();
+	}
+
 	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
 	MulticastElim();
 
@@ -614,6 +682,12 @@ void ABlasterCharacter::ElimTimerFinished()
 	{
 		BlasterGameMode->RequestRespawn(this, Controller);
 	}
+
+	// 머리 위에 로봇 효과 제거
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
+	}
 }
 
 void ABlasterCharacter::StartDissolve()
@@ -625,6 +699,19 @@ void ABlasterCharacter::StartDissolve()
 	{
 		DissolveTimeline->AddInterpFloat(DissolveCurve, DissolveTrack);
 		DissolveTimeline->Play();
+	}
+}
+
+void ABlasterCharacter::PollInit()
+{
+	// BlasterPlayerState를 초기화하면서 최초로 한번만 실행
+	if (!BlasterPlayerState)
+	{
+		if (BlasterPlayerState = GetPlayerState<ABlasterPlayerState>())
+		{
+			BlasterPlayerState->AddToScore(0.f);
+			BlasterPlayerState->AddToDefeats(0);
+		}
 	}
 }
 

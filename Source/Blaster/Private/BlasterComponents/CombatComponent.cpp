@@ -104,6 +104,9 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 
 	bCanFire = true;
 
+	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
+	// 하지만 아래 내용이 적용되고 복사될 지, 복사 먼저되서 내용 적용이 안될지는 레플리케이션 타이밍에 따라 다름
+	// 그래서 아래 내용은 OnRep에서 한번 더 수행한다.
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 
@@ -331,6 +334,15 @@ void UCombatComponent::OnRep_EquippedWeapon()
 	// 다른 클라이언트에서도 무기들었을 때 회전하지 않도록 함
 	if (EquippedWeapon && Character)
 	{
+		// 아래 내용은 EquippedWeapon을 레플리케이션할 때 적용되었을 수도 있지만 타이밍에 따라 안될수도 있어서 한번 더 적용
+		EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+
+		const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("RightHandSocket"));
+		if (HandSocket)
+		{
+			HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
+		}
+
 		if (Character->GetCharacterMovement())
 		{
 			Character->GetCharacterMovement()->bOrientRotationToMovement = false;

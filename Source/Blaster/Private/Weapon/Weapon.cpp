@@ -108,7 +108,32 @@ void AWeapon::SetWeaponState(EWeaponState State)
 	{
 	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		if (AreaSphere)
+		{
+			AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+
+		if (WeaponMesh)
+		{
+			WeaponMesh->SetSimulatePhysics(false);
+			WeaponMesh->SetEnableGravity(false);
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+		break;
+	case EWeaponState::EWS_Dropped:
+		// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
+		if (HasAuthority() && AreaSphere)
+		{
+			AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		}
+
+		if (WeaponMesh)
+		{
+			WeaponMesh->SetSimulatePhysics(true);
+			WeaponMesh->SetEnableGravity(true);
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		}
 		break;
 	default:
 		break;
@@ -123,12 +148,39 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 	}
 }
 
+void AWeapon::Dropped()
+{
+	SetWeaponState(EWeaponState::EWS_Dropped);
+
+	if (WeaponMesh)
+	{
+		FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+		WeaponMesh->DetachFromComponent(DetachRules);
+		SetOwner(nullptr);
+	}
+}
+
 void AWeapon::OnRep_WeaponState()
 {
 	switch (WeaponState)
 	{
 	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
+
+		if (WeaponMesh)
+		{
+			WeaponMesh->SetSimulatePhysics(false);
+			WeaponMesh->SetEnableGravity(false);
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+		break;
+	case EWeaponState::EWS_Dropped:
+		if (WeaponMesh)
+		{
+			WeaponMesh->SetSimulatePhysics(true);
+			WeaponMesh->SetEnableGravity(true);
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		}
 		break;
 	default:
 		break;

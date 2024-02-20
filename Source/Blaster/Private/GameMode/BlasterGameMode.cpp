@@ -5,9 +5,25 @@
 #include "PlayerController/BlasterPlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
+#include "PlayerState/BlasterPlayerState.h"
 
 void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
 {
+	// 플레이어 스테이트에 점수 추가
+	if (AttackerController && VictimController)
+	{
+		ABlasterPlayerState* AttackerPlayerState = Cast<ABlasterPlayerState>(AttackerController->PlayerState);
+		ABlasterPlayerState* VictimPlayerState = Cast<ABlasterPlayerState>(VictimController->PlayerState);
+		if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState)
+		{
+			AttackerPlayerState->AddToScore(1.f);
+		}
+		if (VictimPlayerState)
+		{
+			VictimPlayerState->AddToDefeats(1);
+		}
+	}
+
 	if (ElimmedCharacter)
 	{
 		ElimmedCharacter->Elim();

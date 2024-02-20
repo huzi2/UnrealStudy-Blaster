@@ -17,9 +17,12 @@ class BLASTER_API ABlasterPlayerController : public APlayerController
 
 private:
 	virtual void BeginPlay() final;
+	virtual void OnPossess(APawn* InPawn) final;
 
 public:
 	void SetHUDHealth(float Health, float MaxHealth);
+	void SetHUDScore(float Score);
+	void SetHUDDefeats(int32 Defeats);
 
 private:
 	TObjectPtr<ABlasterHUD> BlasterHUD;

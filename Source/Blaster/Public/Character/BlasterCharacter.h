@@ -15,6 +15,8 @@ class UWidgetComponent;
 class UCombatComponent;
 class AWeapon;
 class ABlasterPlayerController;
+class USoundCue;
+class ABlasterPlayerState;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
@@ -31,6 +33,7 @@ private:
 	virtual void BeginPlay() final;
 	virtual void PostInitializeComponents() final;
 	virtual void Tick(float DeltaTime) final;
+	virtual void Destroyed() final;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 	virtual void Jump() final;
@@ -52,6 +55,8 @@ private:
 
 public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	FORCEINLINE float GetHealth() const { return Health; }
+	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
@@ -89,6 +94,7 @@ private:
 	void UpdateHUDHealth();
 	void ElimTimerFinished();
 	void StartDissolve();
+	void PollInit();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -145,6 +151,15 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Elim")
 	TObjectPtr<UMaterialInstance> DissolveMaterialInstance;
 
+	UPROPERTY(EditAnywhere, Category = "Elim")
+	TObjectPtr<UParticleSystem> ElimBotEffect;
+
+	UPROPERTY(VisibleAnywhere, Category = "Elim")
+	TObjectPtr<UParticleSystemComponent> ElimBotComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Elim")
+	TObjectPtr<USoundCue> ElimBotSound;
+
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
 
@@ -177,6 +192,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ABlasterPlayerController> BlasterPlayerController;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterPlayerState> BlasterPlayerState;
 
 private:
 	float AO_Yaw;
