@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Weapon/WeaponTypes.h"
 #include "Weapon.generated.h"
 
 UENUM(BlueprintType)
@@ -18,6 +19,8 @@ enum class EWeaponState : uint8
 class USphereComponent;
 class UWidgetComponent;
 class ACasing;
+class ABlasterCharacter;
+class ABlasterPlayerController;
 
 UCLASS()
 class BLASTER_API AWeapon : public AActor
@@ -30,6 +33,7 @@ protected:
 private:
 	virtual void BeginPlay() final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
+	virtual void OnRep_Owner() final;
 
 public:
 	virtual void Fire(const FVector& HitTarget);
@@ -42,8 +46,9 @@ protected:
 	void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 public:
-	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
+	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
 	FORCEINLINE UTexture2D* GetCrosshairsCenter() const { return CrosshairsCenter; }
 	FORCEINLINE UTexture2D* GetCrosshairsLeft() const { return CrosshairsLeft; }
 	FORCEINLINE UTexture2D* GetCrosshairsRight() const { return CrosshairsRight; }
@@ -56,6 +61,12 @@ public:
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 	void Dropped();
+	void SetHUDAmmo();
+	bool IsEmpty() const;
+
+private:
+	void SpendRound();
+	void CheckInit();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
@@ -78,6 +89,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	TSubclassOf<ACasing> CasingClass;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	EWeaponType WeaponType;
 
 	UPROPERTY(EditAnywhere, Category = "Crosshairs")
 	TObjectPtr<UTexture2D> CrosshairsCenter;
@@ -105,4 +119,19 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Automatic")
 	float FireDelay;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Ammo, EditAnywhere, Category = "Ammo")
+	int32 Ammo;
+
+	UFUNCTION()
+	void OnRep_Ammo();
+
+	UPROPERTY(EditAnywhere, Category = "Ammo")
+	int32 MagCapacity;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterCharacter> BlasterOwnerCharacter;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterPlayerController> BlasterOwnerController;
 };

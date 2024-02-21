@@ -21,6 +21,8 @@ public:
 	FORCEINLINE UTextBlock* GetHealthText() const { return HealthText; }
 	FORCEINLINE UTextBlock* GetScoreAmount() const { return ScoreAmount; }
 	FORCEINLINE UTextBlock* GetDefeatsAmount() const { return DefeatsAmount; }
+	FORCEINLINE UTextBlock* GetWeaponAmmoAmount() const { return WeaponAmmoAmount; }
+	FORCEINLINE UTextBlock* GetCarriedAmmoAmount() const { return CarriedAmmoAmount; }
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -34,4 +36,10 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> DefeatsAmount;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> WeaponAmmoAmount;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> CarriedAmmoAmount;
 };

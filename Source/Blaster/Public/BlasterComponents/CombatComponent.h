@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "HUD/BlasterHUD.h"
+#include "Weapon/WeaponTypes.h"
 #include "CombatComponent.generated.h"
 
 constexpr double TRACE_LENGTH = 80000.0;
@@ -50,6 +51,9 @@ private:
 	void Fire();
 	void StartFireTimer();
 	void FireTimerFinished();
+	bool CanFire() const;
+	void InitializeCarriedAmmo();
+	void CheckInit();
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -61,10 +65,10 @@ private:
 	UPROPERTY(Replicated)
 	bool bAiming;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Movement")
 	float BaseWalkSpeed;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Movement")
 	float AimWalkSpeed;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
@@ -72,6 +76,15 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float ZoomInterpSpeed;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 StartingARAmmo;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
+	int32 CarriedAmmo;
+
+	UFUNCTION()
+	void OnRep_CarriedAmmo();
 
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;
@@ -99,4 +112,6 @@ private:
 
 	bool bCanFire;
 	FTimerHandle FireTimer;
+
+	TMap<EWeaponType, int32> CarriedAmmoMap;
 };

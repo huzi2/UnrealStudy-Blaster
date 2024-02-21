@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Weapon/Casing.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "PlayerController/BlasterPlayerController.h"
 
 AWeapon::AWeapon()
 	: ZoomedFOV(30.f)
@@ -58,6 +59,25 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
+	DOREPLIFETIME(AWeapon, Ammo);
+}
+
+void AWeapon::OnRep_Owner()
+{
+	// Owner 변수가 레플리케이션 될 때 호출. 여기선 클라이언트에만 적용됨
+	// 서버의 경우에는 무기 장착하면서 SetOwner하면서 같이하고있음
+	Super::OnRep_Owner();
+
+	if (!Owner)
+	{
+		BlasterOwnerCharacter = nullptr;
+		BlasterOwnerController = nullptr;
+	}
+	else
+	{
+		// 이 무기에 저장된 탄약 수를 오너에게 알림
+		SetHUDAmmo();
+	}
 }
 
 void AWeapon::Fire(const FVector& HitTarget)
@@ -80,6 +100,9 @@ void AWeapon::Fire(const FVector& HitTarget)
 			GetWorld()->SpawnActor<ACasing>(CasingClass, SocketTransform.GetLocation(), SocketTransform.GetRotation().Rotator(), SpawnParams);
 		}
 	}
+
+	// 탄약 사용
+	SpendRound();
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -152,11 +175,53 @@ void AWeapon::Dropped()
 {
 	SetWeaponState(EWeaponState::EWS_Dropped);
 
+	// 무기를 땅에 떨구고
 	if (WeaponMesh)
 	{
 		FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 		WeaponMesh->DetachFromComponent(DetachRules);
-		SetOwner(nullptr);
+	}
+
+	// 소유자 초기화. 서버에서만 호출되서 클라는 OnRep_Owner()에서 처리
+	SetOwner(nullptr);
+	BlasterOwnerCharacter = nullptr;
+	BlasterOwnerController = nullptr;
+}
+
+void AWeapon::SetHUDAmmo()
+{
+	CheckInit();
+
+	if (BlasterOwnerController)
+	{
+		BlasterOwnerController->SetHUDWeaponAmmo(Ammo);
+	}
+}
+
+bool AWeapon::IsEmpty() const
+{
+	return Ammo <= 0;
+}
+
+void AWeapon::SpendRound()
+{
+	// 서버에서 호출하는 Fire()에서 사용하기에 서버에서만 사용되는 함수
+	// 총알 사용. 레플리케이션 변수라서 클라이언트들에게도 적용되고 OnRep_Ammo() 함수 수행
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+
+	SetHUDAmmo();
+}
+
+void AWeapon::CheckInit()
+{
+	if (!BlasterOwnerCharacter)
+	{
+		BlasterOwnerCharacter = Cast<ABlasterCharacter>(GetOwner());
+	}
+
+	if (BlasterOwnerCharacter && !BlasterOwnerController)
+	{
+		BlasterOwnerController = Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller);
 	}
 }
 
@@ -185,4 +250,10 @@ void AWeapon::OnRep_WeaponState()
 	default:
 		break;
 	}
+}
+
+void AWeapon::OnRep_Ammo()
+{
+	// 클라이언트에 탄약 적용
+	SetHUDAmmo();
 }

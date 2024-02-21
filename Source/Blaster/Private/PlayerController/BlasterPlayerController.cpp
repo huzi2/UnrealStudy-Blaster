@@ -61,3 +61,23 @@ void ABlasterPlayerController::SetHUDDefeats(int32 Defeats)
 	const FString DefeatsText = FString::Printf(TEXT("%d"), Defeats);
 	BlasterHUD->GetCharacterOverlay()->GetDefeatsAmount()->SetText(FText::FromString(DefeatsText));
 }
+
+void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetWeaponAmmoAmount()) return;
+
+	const FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
+	BlasterHUD->GetCharacterOverlay()->GetWeaponAmmoAmount()->SetText(FText::FromString(AmmoText));
+}
+
+void ABlasterPlayerController::SetHUDCarriedAmmo(int32 Ammo)
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetCarriedAmmoAmount()) return;
+
+	const FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
+	BlasterHUD->GetCharacterOverlay()->GetCarriedAmmoAmount()->SetText(FText::FromString(AmmoText));
+}

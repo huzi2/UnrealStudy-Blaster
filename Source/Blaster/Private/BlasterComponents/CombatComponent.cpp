@@ -17,6 +17,7 @@ UCombatComponent::UCombatComponent()
 	, AimWalkSpeed(450.f)
 	, ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
+	, StartingARAmmo(30)
 	, bCanFire(true)
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -26,14 +27,22 @@ void UCombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (Character && Character->GetCharacterMovement())
+	if (Character)
 	{
-		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
+		if (Character->GetCharacterMovement())
+		{
+			Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
+		}
 
 		if (Character->GetFollowCamera())
 		{
 			DefaultFOV = Character->GetFollowCamera()->FieldOfView;
 			CurrentFOV = DefaultFOV;
+		}
+
+		if (Character->HasAuthority())
+		{
+			InitializeCarriedAmmo();
 		}
 	}
 }
@@ -68,6 +77,9 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	// 조준 자세를 다른 클라도 확인해야해서 레플리케이트
 	DOREPLIFETIME(UCombatComponent, bAiming);
+
+	// 운반 탄약은 다른 클라들은 몰라도되고 자신만 알고있으면 되니까 COND_OwnerOnly
+	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo, COND_OwnerOnly);
 }
 
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
@@ -102,6 +114,12 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!Character || !WeaponToEquip) return;
 
+	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Dropped();
+	}
+
 	bCanFire = true;
 
 	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
@@ -116,7 +134,22 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
 	}
 
+	// Owner은 서버에서 세팅하고 클라에 레플리케이션되는 변수
 	EquippedWeapon->SetOwner(Character);
+	// 서버에 탄약 적용
+	EquippedWeapon->SetHUDAmmo();
+
+	// 서버에 무기의 맥시멈 탄약 수 설정
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+	}
+
+	CheckInit();
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
 
 	// 무기를 낀 후에는 정면을 조준하면서 이동하도록 함
 	if (Character->GetCharacterMovement())
@@ -199,10 +232,7 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 	if (!Character) return;
 	if (!Character->Controller) return;
 
-	if (!Controller)
-	{
-		Controller = Cast<ABlasterPlayerController>(Character->Controller);
-	}
+	CheckInit();
 
 	if (Controller)
 	{
@@ -295,7 +325,7 @@ void UCombatComponent::InterpFOV(float DeltaTime)
 
 void UCombatComponent::Fire()
 {
-	if (!bCanFire) return;
+	if (!CanFire()) return;
 
 	bCanFire = false;
 
@@ -328,6 +358,27 @@ void UCombatComponent::FireTimerFinished()
 	}
 }
 
+bool UCombatComponent::CanFire() const
+{
+	if (!EquippedWeapon) return false;
+	if (EquippedWeapon->IsEmpty()) return false;
+	if (!bCanFire) return false;
+	return true;
+}
+
+void UCombatComponent::InitializeCarriedAmmo()
+{
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_AssaultRifle, StartingARAmmo);
+}
+
+void UCombatComponent::CheckInit()
+{
+	if (!Controller)
+	{
+		Controller = Cast<ABlasterPlayerController>(Character->Controller);
+	}
+}
+
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	bCanFire = true;
@@ -348,5 +399,15 @@ void UCombatComponent::OnRep_EquippedWeapon()
 			Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 			Character->bUseControllerRotationYaw = true;
 		}
+	}
+}
+
+void UCombatComponent::OnRep_CarriedAmmo()
+{
+	// 클라에 무기 맥시멈 탄약수 설정
+	CheckInit();
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
 	}
 }

@@ -215,6 +215,12 @@ void ABlasterCharacter::MulticastElim_Implementation()
 	bElimmed = true;
 	PlayElimMontage();
 
+	// 탄약 초기화
+	if (BlasterPlayerController)
+	{
+		BlasterPlayerController->SetHUDWeaponAmmo(0);
+	}
+
 	// 죽을 때 사라지는 이펙트를 위해 머티리얼 인스턴스를 생성 후 적용
 	if (GetMesh() && DissolveMaterialInstance)
 	{
