@@ -203,12 +203,17 @@ bool AWeapon::IsEmpty() const
 	return Ammo <= 0;
 }
 
+void AWeapon::AddAmmo(int32 AmmoToAdd)
+{
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	SetHUDAmmo();
+}
+
 void AWeapon::SpendRound()
 {
 	// 서버에서 호출하는 Fire()에서 사용하기에 서버에서만 사용되는 함수
 	// 총알 사용. 레플리케이션 변수라서 클라이언트들에게도 적용되고 OnRep_Ammo() 함수 수행
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
-
 	SetHUDAmmo();
 }
 

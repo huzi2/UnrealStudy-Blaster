@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "HUD/BlasterHUD.h"
 #include "Weapon/WeaponTypes.h"
+#include "BlasterTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
 constexpr double TRACE_LENGTH = 80000.0;
@@ -39,9 +40,16 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
 
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishReloading();
+
 public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void SetAiming(bool bIsAiming);
+	void Reload();
 
 private:
 	void FireButtonPressed(bool bPressed);
@@ -54,6 +62,9 @@ private:
 	bool CanFire() const;
 	void InitializeCarriedAmmo();
 	void CheckInit();
+	void HandleReload();
+	int32 AmountToReload() const;
+	void UpdateAmmoValues();
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -85,6 +96,12 @@ private:
 
 	UFUNCTION()
 	void OnRep_CarriedAmmo();
+
+	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
+	ECombatState CombatState;
+
+	UFUNCTION()
+	void OnRep_CombatState();
 
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;

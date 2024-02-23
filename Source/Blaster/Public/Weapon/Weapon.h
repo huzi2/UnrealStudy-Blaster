@@ -21,6 +21,7 @@ class UWidgetComponent;
 class ACasing;
 class ABlasterCharacter;
 class ABlasterPlayerController;
+class USoundCue;
 
 UCLASS()
 class BLASTER_API AWeapon : public AActor
@@ -58,11 +59,15 @@ public:
 	FORCEINLINE float GetZoomInterpSpeed() const { return ZoomInterpSpeed; }
 	FORCEINLINE bool IsAutomatic() const { return bAutomatic; }
 	FORCEINLINE float GetFireDelay() const { return FireDelay; }
+	FORCEINLINE int32 GetAmmo() const { return Ammo; }
+	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
+	FORCEINLINE USoundCue* GetEquipSound() const { return EquipSound; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 	void Dropped();
 	void SetHUDAmmo();
 	bool IsEmpty() const;
+	void AddAmmo(int32 AmmoToAdd);
 
 private:
 	void SpendRound();
@@ -128,6 +133,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Ammo")
 	int32 MagCapacity;
+
+	UPROPERTY(EditAnywhere, Category = "Sound")
+	TObjectPtr<USoundCue> EquipSound;
 
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> BlasterOwnerCharacter;

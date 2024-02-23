@@ -11,6 +11,7 @@
 #include "PlayerController/BlasterPlayerController.h"
 #include "Camera/CameraComponent.h"
 #include "TimerManager.h"
+#include "Sound/SoundCue.h"
 
 UCombatComponent::UCombatComponent()
 	: BaseWalkSpeed(600.f)
@@ -18,6 +19,7 @@ UCombatComponent::UCombatComponent()
 	, ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
 	, StartingARAmmo(30)
+	, CombatState(ECombatState::ECS_Unoccupied)
 	, bCanFire(true)
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -80,6 +82,8 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	// 운반 탄약은 다른 클라들은 몰라도되고 자신만 알고있으면 되니까 COND_OwnerOnly
 	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo, COND_OwnerOnly);
+
+	DOREPLIFETIME(UCombatComponent, CombatState);
 }
 
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
@@ -103,11 +107,39 @@ void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& T
 {
 	if (!Character) return;
 	if (!EquippedWeapon) return;
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
 	// 발사 모션과 발사 이펙트가 모든 클라이언트에서 보이도록 멀티캐스트
 	// 멀티캐스트로 서버, 클라 모두에서 발사 실행
 	Character->PlayFireMontage(bAiming);
 	EquippedWeapon->Fire(TraceHitTarget);
+}
+
+void UCombatComponent::ServerReload_Implementation()
+{
+	// 재장전시 서버에서 하는 행동들임
+	// 클라는 CombatState를 수정하면서 OnRep_CombatState()를 통해 수행
+	CombatState = ECombatState::ECS_Reloading;
+	HandleReload();
+}
+
+void UCombatComponent::FinishReloading()
+{
+	// 애니메이션 블루프린트에서 리로드 모션 끝나면 호출할 함수
+	if (!Character) return;
+	if (Character->HasAuthority())
+	{
+		CombatState = ECombatState::ECS_Unoccupied;
+
+		// 액션 끝나면서 탄약 수 갱신
+		UpdateAmmoValues();
+	}
+
+	// CombatState 바뀌기전에 발사 버튼 눌렀을 때 문제가 생길 수 있어서 작성
+	if (bFireButtonPressed)
+	{
+		Fire();
+	}
 }
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
@@ -151,6 +183,11 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		Controller->SetHUDCarriedAmmo(CarriedAmmo);
 	}
 
+	if (EquippedWeapon->GetEquipSound())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
+	}
+
 	// 무기를 낀 후에는 정면을 조준하면서 이동하도록 함
 	if (Character->GetCharacterMovement())
 	{
@@ -171,6 +208,14 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	if (Character && Character->GetCharacterMovement())
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
+}
+
+void UCombatComponent::Reload()
+{
+	if (CarriedAmmo > 0 && CombatState != ECombatState::ECS_Reloading)
+	{
+		ServerReload();
 	}
 }
 
@@ -363,6 +408,7 @@ bool UCombatComponent::CanFire() const
 	if (!EquippedWeapon) return false;
 	if (EquippedWeapon->IsEmpty()) return false;
 	if (!bCanFire) return false;
+	if (CombatState != ECombatState::ECS_Unoccupied) return false;
 	return true;
 }
 
@@ -377,6 +423,56 @@ void UCombatComponent::CheckInit()
 	{
 		Controller = Cast<ABlasterPlayerController>(Character->Controller);
 	}
+}
+
+void UCombatComponent::HandleReload()
+{
+	if (!Character) return;
+	// 리로드하면서 서버, 클라가 다 해야하는 작업 정리
+	Character->PlayReloadMontage();
+}
+
+int32 UCombatComponent::AmountToReload() const
+{
+	if (!EquippedWeapon) return 0;
+
+	// 장전했을 때 장전할 탄약 수 계산
+
+	// 현재 탄창에 남은 공간
+	const int32 RoomInMsg = EquippedWeapon->GetMagCapacity() - EquippedWeapon->GetAmmo();
+
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		// 플레이어가 현재 무기 타입의 탄약을 가지고 있는 양
+		const int32 AmountCarried = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		const int32 Least = FMath::Min(RoomInMsg, AmountCarried);
+		return FMath::Clamp(RoomInMsg, 0, Least);
+	}
+	return 0;
+}
+
+void UCombatComponent::UpdateAmmoValues()
+{
+	if (!EquippedWeapon) return;
+
+	// 재장전할 탄약 수를 계산
+	const int32 ReloadAmount = AmountToReload();
+
+	// 휴대하고 있는 탄약에서 제거
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] -= ReloadAmount;
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+
+		CheckInit();
+		if (Controller)
+		{
+			Controller->SetHUDCarriedAmmo(CarriedAmmo);
+		}
+	}
+
+	// 무기의 Ammo 변수는 레플리케이션되서 클라에 자동 적용됨
+	EquippedWeapon->AddAmmo(ReloadAmount);
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()
@@ -394,6 +490,11 @@ void UCombatComponent::OnRep_EquippedWeapon()
 			HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
 		}
 
+		if (EquippedWeapon->GetEquipSound())
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
+		}
+
 		if (Character->GetCharacterMovement())
 		{
 			Character->GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -409,5 +510,23 @@ void UCombatComponent::OnRep_CarriedAmmo()
 	if (Controller)
 	{
 		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+}
+
+void UCombatComponent::OnRep_CombatState()
+{
+	switch (CombatState)
+	{
+	case ECombatState::ECS_Unoccupied:
+		if (bFireButtonPressed)
+		{
+			Fire();
+		}
+		break;
+	case ECombatState::ECS_Reloading:
+		HandleReload();
+		break;
+	default:
+		break;
 	}
 }
