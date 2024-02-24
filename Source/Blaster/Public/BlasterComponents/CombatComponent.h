@@ -91,6 +91,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	int32 StartingARAmmo;
 
+	// TMap은 레플리케이션이 안되서 레플리케이션하기 위한 변수임
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
 	int32 CarriedAmmo;
 
@@ -130,5 +131,7 @@ private:
 	bool bCanFire;
 	FTimerHandle FireTimer;
 
+	// 플레이어가 가지고 있는 무기 종류별 탄약
+	// 해당 변수를 레플리케이션하지 않고 CarriedAmmo로 따로 가지고 있는 이유는 TMap은 해쉬맵으로 레플리케이션이 안된다.
 	TMap<EWeaponType, int32> CarriedAmmoMap;
 };

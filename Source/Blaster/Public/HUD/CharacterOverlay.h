@@ -23,6 +23,7 @@ public:
 	FORCEINLINE UTextBlock* GetDefeatsAmount() const { return DefeatsAmount; }
 	FORCEINLINE UTextBlock* GetWeaponAmmoAmount() const { return WeaponAmmoAmount; }
 	FORCEINLINE UTextBlock* GetCarriedAmmoAmount() const { return CarriedAmmoAmount; }
+	FORCEINLINE UTextBlock* GetMatchCountdownText() const { return MatchCountdownText; }
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -42,4 +43,7 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> CarriedAmmoAmount;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MatchCountdownText;
 };

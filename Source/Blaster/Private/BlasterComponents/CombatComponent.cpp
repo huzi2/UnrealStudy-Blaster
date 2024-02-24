@@ -188,6 +188,12 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
 	}
 
+	// 무기 장착 후 탄약이 없으면 자동 재장전
+	if (EquippedWeapon->IsEmpty())
+	{
+		Reload();
+	}
+
 	// 무기를 낀 후에는 정면을 조준하면서 이동하도록 함
 	if (Character->GetCharacterMovement())
 	{
@@ -400,6 +406,12 @@ void UCombatComponent::FireTimerFinished()
 	if (bFireButtonPressed && EquippedWeapon->IsAutomatic())
 	{
 		Fire();
+	}
+
+	// 무기 발사 후 탄약이 없으면 자동 재장전
+	if (EquippedWeapon->IsEmpty())
+	{
+		Reload();
 	}
 }
 

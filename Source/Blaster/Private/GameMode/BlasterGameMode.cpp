@@ -7,6 +7,41 @@
 #include "GameFramework/PlayerStart.h"
 #include "PlayerState/BlasterPlayerState.h"
 
+ABlasterGameMode::ABlasterGameMode()
+	: WarmupTime(10.f)
+	, CountdownTime(0.f)
+	, LevelStartingTime(0.f)
+{
+	bDelayedStart = true;
+}
+
+void ABlasterGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (GetWorld())
+	{
+		LevelStartingTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
+void ABlasterGameMode::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (GetWorld())
+	{
+		if (MatchState == MatchState::WaitingToStart)
+		{
+			CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+			if (CountdownTime <= 0.f)
+			{
+				StartMatch();
+			}
+		}
+	}
+}
+
 void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
 {
 	// 플레이어 스테이트에 점수 추가
