@@ -7,8 +7,15 @@
 #include "GameFramework/PlayerStart.h"
 #include "PlayerState/BlasterPlayerState.h"
 
+namespace MatchState
+{
+	const FName Cooldown = TEXT("Cooldown");
+}
+
 ABlasterGameMode::ABlasterGameMode()
 	: WarmupTime(10.f)
+	, MatchTime(120.f)
+	, CooldownTime(10.f)
 	, CountdownTime(0.f)
 	, LevelStartingTime(0.f)
 {
@@ -31,6 +38,7 @@ void ABlasterGameMode::Tick(float DeltaTime)
 
 	if (GetWorld())
 	{
+		// 매치 대기 시간이 지나면 매치 시작
 		if (MatchState == MatchState::WaitingToStart)
 		{
 			CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
@@ -38,6 +46,32 @@ void ABlasterGameMode::Tick(float DeltaTime)
 			{
 				StartMatch();
 			}
+		}
+		// 매치에 주어진 시간이 지나면 쿨다운 상태로 변경
+		else if (MatchState == MatchState::InProgress)
+		{
+			CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+			if (CountdownTime <= 0.f)
+			{
+				SetMatchState(MatchState::Cooldown);
+			}
+		}
+	}
+}
+
+void ABlasterGameMode::OnMatchStateSet()
+{
+	Super::OnMatchStateSet();
+
+	if (!GetWorld()) return;
+
+	// 모든 컨트롤러에게 매치 상태를 알려준다. 게임모드는 서버만 가지고 있으므로 클라의 컨트롤러에게는 서버 컨트롤러가 레플리케이션으로 알려준다.
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayer)
+		{
+			BlasterPlayer->OnMatchStateSet(MatchState);
 		}
 	}
 }

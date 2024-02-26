@@ -3,17 +3,11 @@
 #include "HUD/BlasterHUD.h"
 #include "GameFramework/PlayerController.h"
 #include "HUD/CharacterOverlay.h"
+#include "HUD/Announcement.h"
 
 ABlasterHUD::ABlasterHUD()
 	: CrosshairSpreadMax(16.0)
 {
-}
-
-void ABlasterHUD::BeginPlay()
-{
-	Super::BeginPlay();
-
-	AddCharacterOverlay();
 }
 
 void ABlasterHUD::DrawHUD()
@@ -45,6 +39,17 @@ void ABlasterHUD::AddCharacterOverlay()
 
 	CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
 	CharacterOverlay->AddToViewport();
+}
+
+void ABlasterHUD::AddAnnouncement()
+{
+	if (!AnnouncementClass) return;
+
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (!PlayerController) return;
+
+	Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
+	Announcement->AddToViewport();
 }
 
 void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread, const FLinearColor& CrosshairColor)

@@ -7,6 +7,7 @@
 #include "BlasterHUD.generated.h"
 
 class UCharacterOverlay;
+class UAnnouncement;
 
 USTRUCT(BlueprintType)
 struct FHUDPackage
@@ -45,15 +46,17 @@ private:
 	ABlasterHUD();
 
 private:
-	virtual void BeginPlay() final;
 	virtual void DrawHUD() final;
 
 public:
 	FORCEINLINE UCharacterOverlay* GetCharacterOverlay() const { return CharacterOverlay; }
+	FORCEINLINE UAnnouncement* GetAnnouncement() const { return Announcement; }
 	FORCEINLINE void SetHUDPackage(const FHUDPackage& Package) { HUDPackage = Package; }
 
-private:
 	void AddCharacterOverlay();
+	void AddAnnouncement();
+
+private:
 	void DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread, const FLinearColor& CrosshairColor);
 
 private:
@@ -63,8 +66,14 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<UUserWidget> CharacterOverlayClass;
 
+	UPROPERTY(EditAnywhere, Category = "Announcements")
+	TSubclassOf<UUserWidget> AnnouncementClass;
+
 	UPROPERTY()
 	TObjectPtr<UCharacterOverlay> CharacterOverlay;
+
+	UPROPERTY()
+	TObjectPtr<UAnnouncement> Announcement;
 
 private:
 	FHUDPackage HUDPackage;

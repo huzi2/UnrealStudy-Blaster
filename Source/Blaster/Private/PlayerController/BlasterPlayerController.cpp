@@ -6,13 +6,17 @@
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Character/BlasterCharacter.h"
+#include "Net/UnrealNetwork.h"
+#include "GameMode/BlasterGameMode.h"
+#include "HUD/Announcement.h"
+#include "Kismet/GameplayStatics.h"
 
 ABlasterPlayerController::ABlasterPlayerController()
 	: TimeSyncFrequency(5.f)
-	, MatchTime(120.f)
 	, CounddownInt(0)
 	, ClientServerDelta(0.f)
 	, TimeSyncRunningTime(0.f)
+	, bInitializeCharacterOverlay(false)
 {
 }
 
@@ -21,6 +25,14 @@ void ABlasterPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	BlasterHUD = Cast<ABlasterHUD>(GetHUD());
+
+	if (HasAuthority())
+	{
+		BlasterGameMode = Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this));
+	}
+
+	// 클라이언트가 게임에 들어왔으면 서버에게 매치상태를 요청. 서버와 매치상태를 맞춘다.
+	ServerCheckMatchState();
 }
 
 void ABlasterPlayerController::OnPossess(APawn* InPawn)
@@ -45,6 +57,9 @@ void ABlasterPlayerController::Tick(float DeltaTime)
 
 	// 일정 주기마다 시간 보정
 	CheckTimeSync(DeltaTime);
+
+	// 컨트롤러가 먼저 생성되서 오버레이가 초기화안됬을 때 초기화
+	PollInit();
 }
 
 void ABlasterPlayerController::ReceivedPlayer()
@@ -56,6 +71,13 @@ void ABlasterPlayerController::ReceivedPlayer()
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
 	}
+}
+
+void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABlasterPlayerController, MatchState);
 }
 
 void ABlasterPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
@@ -84,10 +106,49 @@ void ABlasterPlayerController::ClientReportServerTime_Implementation(float TimeO
 	ClientServerDelta = CurrentServerTime - GetWorld()->GetTimeSeconds();
 }
 
+void ABlasterPlayerController::ServerCheckMatchState_Implementation()
+{
+	// 서버의 게임 모드에서 매치 시작 전 대기시간과 매치 지속시간을 확인
+	if (BlasterGameMode)
+	{
+		MatchState = BlasterGameMode->GetMatchState();
+		WarmupTime = BlasterGameMode->GetWarmupTime();
+		MatchTime = BlasterGameMode->GetMatchTime();
+		CooldownTime = BlasterGameMode->GetCooldownTime();
+		LevelStartingTime = BlasterGameMode->GetLevelStartingTime();
+
+		// 서버에서 알아낸 매치 관련 정보를 클라이언트들에게도 알려줌
+		ClientJoinMidGame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime);
+	}
+}
+
+void ABlasterPlayerController::ClientJoinMidGame_Implementation(const FName& StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime)
+{
+	// 서버에서 알아낸 매치 관련 정보를 중간에 들어온 클라이언트들에게도 알려줌
+	WarmupTime = Warmup;
+	MatchTime = Match;
+	CooldownTime = Cooldown;
+	LevelStartingTime = StartingTime;
+	MatchState = StateOfMatch;
+
+	// 중간에 들어왔으면 새 매치상태로 바로 변경
+	OnMatchStateSet(MatchState);
+
+	if (BlasterHUD && MatchState == MatchState::WaitingToStart)
+	{
+		BlasterHUD->AddAnnouncement();
+	}
+}
+
 void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 {
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
+	{
+		bInitializeCharacterOverlay = true;
+		HUDHealth = Health;
+		HUDMaxHealth = MaxHealth;
+		return;
+	}
 	if (!BlasterHUD->GetCharacterOverlay()->GetHealthBar()) return;
 	if (!BlasterHUD->GetCharacterOverlay()->GetHealthText()) return;
 
@@ -100,8 +161,12 @@ void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 
 void ABlasterPlayerController::SetHUDScore(float Score)
 {
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
+	{
+		bInitializeCharacterOverlay = true;
+		HUDScore = Score;
+		return;
+	}
 	if (!BlasterHUD->GetCharacterOverlay()->GetScoreAmount()) return;
 
 	const FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
@@ -110,8 +175,12 @@ void ABlasterPlayerController::SetHUDScore(float Score)
 
 void ABlasterPlayerController::SetHUDDefeats(int32 Defeats)
 {
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
+	{
+		bInitializeCharacterOverlay = true;
+		HUDDefeats = Defeats;
+		return;
+	}
 	if (!BlasterHUD->GetCharacterOverlay()->GetDefeatsAmount()) return;
 
 	const FString DefeatsText = FString::Printf(TEXT("%d"), Defeats);
@@ -144,11 +213,36 @@ void ABlasterPlayerController::SetHUDMatchCountdown(float CounddownTime)
 	if (!BlasterHUD->GetCharacterOverlay()) return;
 	if (!BlasterHUD->GetCharacterOverlay()->GetMatchCountdownText()) return;
 
+	if (CounddownTime < 0.f)
+	{
+		BlasterHUD->GetCharacterOverlay()->GetMatchCountdownText()->SetText(FText());
+		return;
+	}
+
 	const int32 Minutes = FMath::FloorToInt(CounddownTime / 60.f);
 	const int32 Seconds = CounddownTime - (Minutes * 60);
 
 	const FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 	BlasterHUD->GetCharacterOverlay()->GetMatchCountdownText()->SetText(FText::FromString(CountdownText));
+}
+
+void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CounddownTime)
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetAnnouncement()) return;
+	if (!BlasterHUD->GetAnnouncement()->GetWarmupTime()) return;
+
+	if (CounddownTime < 0.f)
+	{
+		BlasterHUD->GetAnnouncement()->GetWarmupTime()->SetText(FText());
+		return;
+	}
+
+	const int32 Minutes = FMath::FloorToInt(CounddownTime / 60.f);
+	const int32 Seconds = CounddownTime - (Minutes * 60);
+
+	const FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
+	BlasterHUD->GetAnnouncement()->GetWarmupTime()->SetText(FText::FromString(CountdownText));
 }
 
 float ABlasterPlayerController::GetServerTime() const
@@ -160,17 +254,62 @@ float ABlasterPlayerController::GetServerTime() const
 	else return GetWorld()->GetTimeSeconds() + ClientServerDelta;
 }
 
+void ABlasterPlayerController::OnMatchStateSet(const FName& State)
+{
+	// 이 함수는 게임모드에서 호출되므로 서버만 세팅이된다. 클라는 레플리케이션으로 알려줌
+	MatchState = State;
+
+	// 매치가 시작되면
+	if (MatchState == MatchState::InProgress)
+	{
+		HandleMatchHasStarted();
+	}
+	// 커스텀 매치 상태. 매치 사이의 시간
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
+	}
+}
+
 void ABlasterPlayerController::SetHUDTime()
 {
 	if (!GetWorld()) return;
 
-	// 매치타임에서 현재 흘러간 시간을 빼서 남은 시간을 구한다.
-	const uint32 SecondsLeft = FMath::CeilToInt(MatchTime - GetServerTime());
+	float TimeLeft = 0.f;
+	if (MatchState == MatchState::WaitingToStart)
+	{
+		TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+	}
+	else if (MatchState == MatchState::InProgress)
+	{
+		TimeLeft = WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		TimeLeft = WarmupTime + MatchTime + CooldownTime - GetServerTime() + LevelStartingTime;
+	}
+
+	uint32 SecondsLeft = 0;
+	if (BlasterGameMode)
+	{
+		SecondsLeft = BlasterGameMode->GetCountdownTime() + LevelStartingTime;
+	}
+	else
+	{
+		SecondsLeft = FMath::CeilToInt(TimeLeft);
+	}
 
 	// 남은 시간이 실제로 1초라도 수정되었을 때 UI 업데이트(틱마다 업데이트 방지)
 	if (CounddownInt != SecondsLeft)
 	{
-		SetHUDMatchCountdown(MatchTime - GetServerTime());
+		if (MatchState == MatchState::WaitingToStart || MatchState == MatchState::Cooldown)
+		{
+			SetHUDAnnouncementCountdown(TimeLeft);
+		}
+		else if (MatchState == MatchState::InProgress)
+		{
+			SetHUDMatchCountdown(TimeLeft);
+		}
 	}
 
 	CounddownInt = SecondsLeft;
@@ -183,5 +322,75 @@ void ABlasterPlayerController::CheckTimeSync(float DeltaTime)
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
 		TimeSyncRunningTime = 0.f;
+	}
+}
+
+void ABlasterPlayerController::PollInit()
+{
+	// 컨트롤러가 오버레이보다 먼저 생성됬을 때 나중에 초기화하기위함
+	if (!CharacterOverlay && BlasterHUD)
+	{
+		if ((CharacterOverlay = BlasterHUD->GetCharacterOverlay()) && bInitializeCharacterOverlay)
+		{
+			SetHUDHealth(HUDHealth, HUDMaxHealth);
+			SetHUDScore(HUDScore);
+			SetHUDDefeats(HUDDefeats);
+			bInitializeCharacterOverlay = false;
+		}
+	}
+}
+
+void ABlasterPlayerController::HandleMatchHasStarted()
+{
+	if (BlasterHUD)
+	{
+		// 매치 시작 전 알림 오버레이 위젯은 숨기고(쿨다운 때 재활용)
+		if (BlasterHUD->GetAnnouncement())
+		{
+			BlasterHUD->GetAnnouncement()->SetVisibility(ESlateVisibility::Hidden);
+		}
+
+		// 오버레이 위젯 화면에 표시
+		BlasterHUD->AddCharacterOverlay();
+	}
+}
+
+void ABlasterPlayerController::HandleCooldown()
+{
+	if (BlasterHUD)
+	{
+		// 오버레이 위젯은 매치 시작하면서 새로 만들기에 여기서는 아예 제거
+		if (BlasterHUD->GetCharacterOverlay())
+		{
+			BlasterHUD->GetCharacterOverlay()->RemoveFromParent();
+		}
+
+		if (BlasterHUD->GetAnnouncement())
+		{
+			BlasterHUD->GetAnnouncement()->SetVisibility(ESlateVisibility::Visible);
+			
+			if (BlasterHUD->GetAnnouncement()->GetAnnouncementText())
+			{
+				const FString AnnouncementText(TEXT("New Match Starts In:"));
+				BlasterHUD->GetAnnouncement()->GetAnnouncementText()->SetText(FText::FromString(AnnouncementText));
+			}
+			if (BlasterHUD->GetAnnouncement()->GetInfoText())
+			{
+				BlasterHUD->GetAnnouncement()->GetInfoText()->SetText(FText());
+			}
+		}
+	}
+}
+
+void ABlasterPlayerController::OnRep_MatchState()
+{
+	// 서버에서 세팅한걸 클라에서도 똑같이 세팅
+	if (MatchState == MatchState::InProgress)
+	{
+		HandleMatchHasStarted();
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
 	}
 }

@@ -6,7 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "BlasterPlayerController.generated.h"
 
+class ABlasterGameMode;
 class ABlasterHUD;
+class UCharacterOverlay;
 /**
  * 
  */
@@ -23,6 +25,7 @@ private:
 	virtual void OnPossess(APawn* InPawn) final;
 	virtual void Tick(float DeltaTime) final;
 	virtual void ReceivedPlayer() final;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 
 private:
 	// 아래 함수들은 서버-클라 시간을 동기화하기 위함
@@ -34,6 +37,14 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientReportServerTime(float TimeOfClientRequest, float TimeServerReceivedClientRequest);
 
+	// 서버의 매치 상태를 확인
+	UFUNCTION(Server, Reliable)
+	void ServerCheckMatchState();
+
+	// 서버에서 확인한 매치 상태를 클라들에게 알림
+	UFUNCTION(Client, Reliable)
+	void ClientJoinMidGame(const FName& StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime);
+
 public:
 	void SetHUDHealth(float Health, float MaxHealth);
 	void SetHUDScore(float Score);
@@ -41,23 +52,52 @@ public:
 	void SetHUDWeaponAmmo(int32 Ammo);
 	void SetHUDCarriedAmmo(int32 Ammo);
 	void SetHUDMatchCountdown(float CounddownTime);
+	void SetHUDAnnouncementCountdown(float CounddownTime);
 	float GetServerTime() const;
+	void OnMatchStateSet(const FName& State);
 
 private:
 	void SetHUDTime();
 	void CheckTimeSync(float DeltaTime);
+	void PollInit();
+	void HandleMatchHasStarted();
+	void HandleCooldown();
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Time")
 	float TimeSyncFrequency;
+	
+	// 게임 모드의 현재 매치를 알기 위한 변수. 클라는 게임 모드를 확인할 수 없어서 레플리케이션해서 사용
+	UPROPERTY(ReplicatedUsing = OnRep_MatchState)
+	FName MatchState;
+
+	UFUNCTION()
+	void OnRep_MatchState();
+
+	UPROPERTY()
+	TObjectPtr<ABlasterGameMode> BlasterGameMode;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterHUD> BlasterHUD;
+
+	UPROPERTY()
+	TObjectPtr<UCharacterOverlay> CharacterOverlay;
 
 private:
-	TObjectPtr<ABlasterHUD> BlasterHUD;
+	float WarmupTime;
 	float MatchTime;
+	float CooldownTime;
+	float LevelStartingTime;
 	uint32 CounddownInt;
 
 	// 클라이언트와 서버의 시간 차이
 	float ClientServerDelta;
 
 	float TimeSyncRunningTime;
+
+	bool bInitializeCharacterOverlay;
+	float HUDHealth;
+	float HUDMaxHealth;
+	float HUDScore;
+	int32 HUDDefeats;
 };
