@@ -30,6 +30,7 @@ ABlasterCharacter::ABlasterCharacter()
 	, MaxHealth(100.f)
 	, Health(100.f)
 	, ElimDelay(3.f)
+	, bDisableGameplay(false)
 	, TurnThreshold(0.5f)
 	, bElimmed(false)
 {
@@ -121,22 +122,8 @@ void ABlasterCharacter::Tick(float DeltaTime)
 	PollInit();
 
 	// 스스로 제어하거나 서버일 경우 에임따라 상체가 움직임
-	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
-	{
-		// 실시간으로 에임오프셋을 계산
-		AimOffset(DeltaTime);
-	}
-	else
-	{
-		// 움직임이 너무 오래 갱신이 안되면 직접 갱신함
-		TimeSinceLastMovementReplication += DeltaTime;
-		if (TimeSinceLastMovementReplication > 0.25f)
-		{
-			OnRep_ReplicatedMovement();
-		}
-		CalculateAO_Pitch();
-	}
-
+	RotateInPlace(DeltaTime);
+	
 	// 카메라와 캐릭터가 너무 가까워지면 캐릭터를 숨김
 	HideCameraIfCharacterClose();
 }
@@ -150,6 +137,16 @@ void ABlasterCharacter::Destroyed()
 	if (ElimBotComponent)
 	{
 		ElimBotComponent->DestroyComponent();
+	}
+
+	// 매치 상태가 아닐 때 제거되면 무기도 같이 제거
+	ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
+	if (BlasterGameMode && BlasterGameMode->GetMatchState() != MatchState::InProgress)
+	{
+		if (Combat && Combat->EquippedWeapon)
+		{
+			Combat->EquippedWeapon->Destroy();
+		}
 	}
 }
 
@@ -183,10 +180,13 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME_CONDITION(ABlasterCharacter, OverlappingWeapon, COND_OwnerOnly);
 
 	DOREPLIFETIME(ABlasterCharacter, Health);
+	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 }
 
 void ABlasterCharacter::Jump()
 {
+	if (bDisableGameplay) return;
+
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -241,8 +241,13 @@ void ABlasterCharacter::MulticastElim_Implementation()
 		GetCharacterMovement()->StopMovementImmediately();
 	}
 
-	// 입력 제거
-	DisableInput(BlasterPlayerController);
+	// 특정 행동을 못하게 막는다.
+	bDisableGameplay = true;
+	if (Combat)
+	{
+		// 무기가 오토일 때 자동발사를 막음
+		Combat->FireButtonPressed(false);
+	}
 
 	// 충돌 제거
 	if (GetCapsuleComponent())
@@ -443,6 +448,8 @@ void ABlasterCharacter::Elim()
 
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
 {
+	if (bDisableGameplay) return;
+
 	const float MovementValue = Value.Get<float>();
 
 	if (Controller && MovementValue != 0.f)
@@ -456,6 +463,8 @@ void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
 
 void ABlasterCharacter::MoveRight(const FInputActionValue& Value)
 {
+	if (bDisableGameplay) return;
+
 	const float MovementValue = Value.Get<float>();
 
 	if (Controller && MovementValue != 0.f)
@@ -483,6 +492,8 @@ void ABlasterCharacter::LookUp(const FInputActionValue& Value)
 
 void ABlasterCharacter::EquipButtonPressed()
 {
+	if (bDisableGameplay) return;
+
 	if (Combat)
 	{
 		// 서버면 바로 무기 장착
@@ -500,6 +511,8 @@ void ABlasterCharacter::EquipButtonPressed()
 
 void ABlasterCharacter::CrouchButtonPressed()
 {
+	if (bDisableGameplay) return;
+
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -512,6 +525,8 @@ void ABlasterCharacter::CrouchButtonPressed()
 
 void ABlasterCharacter::AimButtonPressed()
 {
+	if (bDisableGameplay) return;
+
 	if (Combat)
 	{
 		Combat->SetAiming(true);
@@ -520,6 +535,8 @@ void ABlasterCharacter::AimButtonPressed()
 
 void ABlasterCharacter::AimButtonReleased()
 {
+	if (bDisableGameplay) return;
+
 	if (Combat)
 	{
 		Combat->SetAiming(false);
@@ -528,6 +545,8 @@ void ABlasterCharacter::AimButtonReleased()
 
 void ABlasterCharacter::FireButtonPressed()
 {
+	if (bDisableGameplay) return;
+
 	if (Combat)
 	{
 		Combat->FireButtonPressed(true);
@@ -536,6 +555,8 @@ void ABlasterCharacter::FireButtonPressed()
 
 void ABlasterCharacter::FireButtonReleased()
 {
+	if (bDisableGameplay) return;
+
 	if (Combat)
 	{
 		Combat->FireButtonPressed(false);
@@ -544,6 +565,8 @@ void ABlasterCharacter::FireButtonReleased()
 
 void ABlasterCharacter::ReloadButtonPressed()
 {
+	if (bDisableGameplay) return;
+
 	if (Combat)
 	{
 		Combat->Reload();
@@ -758,6 +781,32 @@ void ABlasterCharacter::PollInit()
 			BlasterPlayerState->AddToScore(0.f);
 			BlasterPlayerState->AddToDefeats(0);
 		}
+	}
+}
+
+void ABlasterCharacter::RotateInPlace(float DeltaTime)
+{
+	if (bDisableGameplay)
+	{
+		bUseControllerRotationYaw = false;
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		return;
+	}
+
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
+	{
+		// 실시간으로 에임오프셋을 계산
+		AimOffset(DeltaTime);
+	}
+	else
+	{
+		// 움직임이 너무 오래 갱신이 안되면 직접 갱신함
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedMovement();
+		}
+		CalculateAO_Pitch();
 	}
 }
 

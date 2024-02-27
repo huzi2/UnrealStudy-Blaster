@@ -10,6 +10,9 @@
 #include "GameMode/BlasterGameMode.h"
 #include "HUD/Announcement.h"
 #include "Kismet/GameplayStatics.h"
+#include "BlasterComponents/CombatComponent.h"
+#include "GameState/BlasterGameState.h"
+#include "PlayerState/BlasterPlayerState.h"
 
 ABlasterPlayerController::ABlasterPlayerController()
 	: TimeSyncFrequency(5.f)
@@ -376,8 +379,55 @@ void ABlasterPlayerController::HandleCooldown()
 			}
 			if (BlasterHUD->GetAnnouncement()->GetInfoText())
 			{
-				BlasterHUD->GetAnnouncement()->GetInfoText()->SetText(FText());
+				// 최고점 플레이어들을 표시
+				ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+				ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
+
+				if (BlasterGameState)
+				{
+					FString InfoTextString = TEXT("");
+
+					const TArray<ABlasterPlayerState*>& TopPlayers = BlasterGameState->GetTopScoringPlayers();
+					if (TopPlayers.Num() == 0)
+					{
+						InfoTextString = TEXT("There is no winner");
+					}
+					else if(TopPlayers.Num() == 1 && TopPlayers[0] == BlasterPlayerState)
+					{
+						InfoTextString = TEXT("You are the winner!");
+					}
+					else if (TopPlayers.Num() == 1)
+					{
+						InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerName());
+					}
+					else if(TopPlayers.Num() > 1)
+					{
+						InfoTextString = TEXT("Players tied for the win\n");
+						for (const ABlasterPlayerState* TiedPlayer : TopPlayers)
+						{
+							InfoTextString.Append(FString::Printf(TEXT("%s"), *TiedPlayer->GetPlayerName()));
+						}
+					}
+
+					BlasterHUD->GetAnnouncement()->GetInfoText()->SetText(FText::FromString(InfoTextString));
+				}
+				else
+				{
+					BlasterHUD->GetAnnouncement()->GetInfoText()->SetText(FText());
+				}
 			}
+		}
+	}
+
+	// 쿨다운 상태일 때는 특정 행동을 막음
+	if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn()))
+	{
+		BlasterCharacter->SetDisableGameplay(true);
+
+		if (BlasterCharacter->GetCombat())
+		{
+			// 무기가 오토일 때 자동발사를 막음
+			BlasterCharacter->GetCombat()->FireButtonPressed(false);
 		}
 	}
 }

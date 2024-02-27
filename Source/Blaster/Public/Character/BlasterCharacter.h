@@ -56,6 +56,7 @@ private:
 
 public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
@@ -63,6 +64,8 @@ public:
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
 	FORCEINLINE bool IsElimmed() const { return bElimmed; }
+	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
+	FORCEINLINE void SetDisableGameplay(bool bDisable) { bDisableGameplay = bDisable; }
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
 	ECombatState GetCombatState() const;
@@ -99,6 +102,7 @@ private:
 	void ElimTimerFinished();
 	void StartDissolve();
 	void PollInit();
+	void RotateInPlace(float DeltaTime);
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -166,6 +170,10 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Elim")
 	TObjectPtr<USoundCue> ElimBotSound;
+
+	// 쿨다운 상태일 때 특정 입력을 막기 위함
+	UPROPERTY(Replicated)
+	bool bDisableGameplay;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;

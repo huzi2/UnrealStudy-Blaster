@@ -91,6 +91,6 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 
 	// 재장전 중에는 FABRIK, 에임오프셋 사용하지 않음
 	bUseFABRIK = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading;
-	bUseAimOffset = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading;
-	bTransformRightHand = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+	bUseAimOffset = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading && !BlasterCharacter->GetDisableGameplay();
+	bTransformRightHand = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading && !BlasterCharacter->GetDisableGameplay();
 }

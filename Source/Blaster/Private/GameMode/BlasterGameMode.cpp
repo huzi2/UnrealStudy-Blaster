@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 #include "PlayerState/BlasterPlayerState.h"
+#include "GameState/BlasterGameState.h"
 
 namespace MatchState
 {
@@ -56,6 +57,15 @@ void ABlasterGameMode::Tick(float DeltaTime)
 				SetMatchState(MatchState::Cooldown);
 			}
 		}
+		// 매치 사이에 주어진 사긴이 끝나면 다시 초기 상태로
+		else if (MatchState == MatchState::Cooldown)
+		{
+			CountdownTime = WarmupTime + MatchTime + CooldownTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+			if (CountdownTime <= 0.f)
+			{
+				RestartGame();
+			}
+		}
 	}
 }
 
@@ -86,6 +96,13 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 		if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState)
 		{
 			AttackerPlayerState->AddToScore(1.f);
+			
+			// 최고 점수 갱신
+			ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+			if (BlasterGameState)
+			{
+				BlasterGameState->UpdateTopScore(AttackerPlayerState);
+			}
 		}
 		if (VictimPlayerState)
 		{

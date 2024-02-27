@@ -50,9 +50,9 @@ public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void SetAiming(bool bIsAiming);
 	void Reload();
+	void FireButtonPressed(bool bPressed);
 
 private:
-	void FireButtonPressed(bool bPressed);
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 	void SetHUDCrosshairs(float DeltaTime);
 	void InterpFOV(float DeltaTime);
