@@ -354,7 +354,10 @@ void ABlasterPlayerController::HandleMatchHasStarted()
 		}
 
 		// 오버레이 위젯 화면에 표시
-		BlasterHUD->AddCharacterOverlay();
+		if (!BlasterHUD->GetCharacterOverlay())
+		{
+			BlasterHUD->AddCharacterOverlay();
+		}
 	}
 }
 

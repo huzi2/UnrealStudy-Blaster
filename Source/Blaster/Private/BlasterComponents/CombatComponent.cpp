@@ -19,6 +19,7 @@ UCombatComponent::UCombatComponent()
 	, ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
 	, StartingARAmmo(30)
+	, StartingRocketAmmo(0)
 	, CombatState(ECombatState::ECS_Unoccupied)
 	, bCanFire(true)
 {
@@ -427,6 +428,7 @@ bool UCombatComponent::CanFire() const
 void UCombatComponent::InitializeCarriedAmmo()
 {
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_AssaultRifle, StartingARAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_RocketLauncher, StartingRocketAmmo);
 }
 
 void UCombatComponent::CheckInit()
