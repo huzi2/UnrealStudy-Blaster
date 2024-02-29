@@ -16,5 +16,8 @@ class BLASTER_API AProjectileBullet : public AProjectile
 	GENERATED_BODY()
 	
 private:
+	AProjectileBullet();
+
+private:
 	virtual void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit) final;
 };

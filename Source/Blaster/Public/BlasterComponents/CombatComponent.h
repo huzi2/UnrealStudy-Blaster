@@ -94,6 +94,12 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	int32 StartingRocketAmmo;
 
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 StartingPistolAmmo;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 StartingSMGAmmo;
+
 	// TMap은 레플리케이션이 안되서 레플리케이션하기 위한 변수임
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
 	int32 CarriedAmmo;

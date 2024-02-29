@@ -2,7 +2,6 @@
 
 #include "Weapon/Projectile.h"
 #include "Components/BoxComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Character/BlasterCharacter.h"
@@ -26,9 +25,6 @@ AProjectile::AProjectile()
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
 	// 캐릭터의 캡슐이 아닌 메시를 타겟으로 하기위해 만든 커스텀 오브젝트 채널
 	CollisionBox->SetCollisionResponseToChannel(ECC_SkeletalMesh, ECollisionResponse::ECR_Block);
-
-	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
-	ProjectileMovementComponent->bRotationFollowsVelocity = true;
 }
 
 void AProjectile::BeginPlay()

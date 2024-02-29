@@ -21,8 +21,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 
 	if (GetWeaponMesh())
 	{
-		const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
-		if (MuzzleFlashSocket)
+		if (const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash")))
 		{
 			// 积己 瘤痢篮 MuzzleFlash 家南
 			const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
