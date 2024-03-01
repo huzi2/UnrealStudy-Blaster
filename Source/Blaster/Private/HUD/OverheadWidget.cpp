@@ -22,7 +22,7 @@ void UOverheadWidget::ShowPlayerNetRole(APawn* InPawn)
 {
 	if (!InPawn) return;
 	
-	FString Role = TEXT("");
+	FString Role = FString();
 
 	const ENetRole RemoteRole = InPawn->GetRemoteRole();
 	switch (RemoteRole)

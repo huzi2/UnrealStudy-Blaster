@@ -10,7 +10,7 @@ UMenu::UMenu(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, NumPublicConnections(4)
 	, MatchType(TEXT("FreeForAll"))
-	, PathToLobby(TEXT(""))
+	, PathToLobby(FString())
 {
 }
 
@@ -79,7 +79,7 @@ void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResu
 		for (const FOnlineSessionSearchResult& Result : SessionResults)
 		{
 			// 찾은 세션이 설정한 매치타입과 같은 지 확인
-			FString SettingValue = TEXT("");
+			FString SettingValue = FString();
 			Result.Session.SessionSettings.Get(TEXT("MatchType"), SettingValue);
 
 			// 같은 매치타입이 먼저 나온 세션에 가입
@@ -111,7 +111,7 @@ void UMenu::OnJoinSession(EOnJoinSessionCompleteResult::Type Result)
 		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			FString Address = TEXT("");
+			FString Address = FString();
 			SessionInterface->GetResolvedConnectString(NAME_GameSession, Address);
 
 			APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();

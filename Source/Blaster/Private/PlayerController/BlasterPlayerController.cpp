@@ -388,7 +388,7 @@ void ABlasterPlayerController::HandleCooldown()
 
 				if (BlasterGameState)
 				{
-					FString InfoTextString = TEXT("");
+					FString InfoTextString = FString("");
 
 					const TArray<ABlasterPlayerState*>& TopPlayers = BlasterGameState->GetTopScoringPlayers();
 					if (TopPlayers.Num() == 0)

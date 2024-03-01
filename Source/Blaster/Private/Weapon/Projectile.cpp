@@ -33,7 +33,7 @@ void AProjectile::BeginPlay()
 	
 	if (Tracer)
 	{
-		TracerComponent = UGameplayStatics::SpawnEmitterAttached(Tracer, CollisionBox, TEXT(""), GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+		TracerComponent = UGameplayStatics::SpawnEmitterAttached(Tracer, CollisionBox, FName(), GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 	}
 
 	// 충돌 처리 이벤트는 서버에서만 확인
