@@ -44,6 +44,9 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastElim();
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowSniperScopeWidget(bool bShowScope);
+
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();

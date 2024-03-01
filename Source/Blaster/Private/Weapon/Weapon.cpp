@@ -24,7 +24,8 @@ AWeapon::AWeapon()
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
-	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	AreaSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AreaSphere"));
@@ -142,8 +143,20 @@ void AWeapon::SetWeaponState(EWeaponState State)
 		if (WeaponMesh)
 		{
 			WeaponMesh->SetSimulatePhysics(false);
-			WeaponMesh->SetEnableGravity(false);
-			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+			// SMG에는 피직스 에셋으로 줄 흔들림을 구현해서 충돌처리와 중력 사용
+			if (WeaponType == EWeaponType::EWT_SubmachineGun)
+			{
+				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+				WeaponMesh->SetEnableGravity(true);
+				// 그렇다고 다른 물체와 충돌하면 안되니까 무시
+				WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+			}
+			else
+			{
+				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				WeaponMesh->SetEnableGravity(false);
+			}
 		}
 		break;
 	case EWeaponState::EWS_Dropped:
@@ -158,6 +171,11 @@ void AWeapon::SetWeaponState(EWeaponState State)
 			WeaponMesh->SetSimulatePhysics(true);
 			WeaponMesh->SetEnableGravity(true);
 			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+			// 드롭할떄는 땅과 다시 충돌해야하므로 블록으로 설정(SMG의 경우)
+			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 		}
 		break;
 	default:
@@ -242,9 +260,20 @@ void AWeapon::OnRep_WeaponState()
 		if (WeaponMesh)
 		{
 			WeaponMesh->SetSimulatePhysics(false);
-			WeaponMesh->SetEnableGravity(false);
-			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+			if (WeaponType == EWeaponType::EWT_SubmachineGun)
+			{
+				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+				WeaponMesh->SetEnableGravity(true);
+				WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+			}
+			else
+			{
+				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				WeaponMesh->SetEnableGravity(false);
+			}
 		}
+
 		break;
 	case EWeaponState::EWS_Dropped:
 		if (WeaponMesh)
@@ -252,6 +281,9 @@ void AWeapon::OnRep_WeaponState()
 			WeaponMesh->SetSimulatePhysics(true);
 			WeaponMesh->SetEnableGravity(true);
 			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 		}
 		break;
 	default:

@@ -22,6 +22,8 @@ UCombatComponent::UCombatComponent()
 	, StartingRocketAmmo(0)
 	, StartingPistolAmmo(0)
 	, StartingSMGAmmo(0)
+	, StartingShotgunAmmo(0)
+	, StartingSniperAmmo(0)
 	, CombatState(ECombatState::ECS_Unoccupied)
 	, bCanFire(true)
 {
@@ -207,6 +209,9 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 
 void UCombatComponent::SetAiming(bool bIsAiming)
 {
+	if (!Character) return;
+	if (!EquippedWeapon) return;
+
 	// 자신의 조준 자세는 자신이 확인 가능하나, 다른 클라에게는 보이지 않는다.
 	bAiming = bIsAiming;
 
@@ -214,9 +219,15 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	// 해당 함수를 Server로 지정해서 클라에서 호출하면 서버에서 호출해줌
 	ServerSetAiming(bIsAiming);
 
-	if (Character && Character->GetCharacterMovement())
+	if (Character->GetCharacterMovement())
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
+
+	// 컨트롤하는 본인에게만 스나이퍼 스코프를 보여줌
+	if (Character->IsLocallyControlled() && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle)
+	{
+		Character->ShowSniperScopeWidget(bIsAiming);
 	}
 }
 
@@ -433,6 +444,8 @@ void UCombatComponent::InitializeCarriedAmmo()
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_RocketLauncher, StartingRocketAmmo);
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_Pistol, StartingPistolAmmo);
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_SubmachineGun, StartingSMGAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_ShotGun, StartingShotgunAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_SniperRifle, StartingSniperAmmo);
 }
 
 void UCombatComponent::CheckInit()

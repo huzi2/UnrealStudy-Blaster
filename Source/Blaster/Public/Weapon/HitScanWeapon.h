@@ -14,28 +14,44 @@ class BLASTER_API AHitScanWeapon : public AWeapon
 {
 	GENERATED_BODY()
 	
-private:
+protected:
 	AHitScanWeapon();
 
 private:
-	virtual void Fire(const FVector& HitTarget) final;
+	virtual void Fire(const FVector& HitTarget) override;
+
+protected:
+	void WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit);
 
 private:
-	UPROPERTY(EditAnywhere)
+	FVector TraceEndWithScatter(const FVector& TraceStart, const FVector& HitTarget) const;
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	float Damage;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	TObjectPtr<UParticleSystem> ImpactParticles;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
+	TObjectPtr<USoundCue> HitSound;
+
+private:
+	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	TObjectPtr<UParticleSystem> BeamParticles;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	TObjectPtr<UParticleSystem> MuzzleFlash;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	TObjectPtr<USoundCue> FireSound;
 
-	UPROPERTY(EditAnywhere)
-	TObjectPtr<USoundCue> HitSound;
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float DistanceToSphere;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float SphereRadius;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	bool bUseScatter;
 };

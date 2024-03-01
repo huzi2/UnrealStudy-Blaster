@@ -9,8 +9,6 @@
 #include "BlasterTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
-constexpr double TRACE_LENGTH = 80000.0;
-
 class AWeapon;
 class ABlasterPlayerController;
 class ABlasterHUD;
@@ -99,6 +97,12 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	int32 StartingSMGAmmo;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 StartingShotgunAmmo;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 StartingSniperAmmo;
 
 	// TMap은 레플리케이션이 안되서 레플리케이션하기 위한 변수임
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)

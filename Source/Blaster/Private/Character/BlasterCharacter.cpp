@@ -270,6 +270,12 @@ void ABlasterCharacter::MulticastElim_Implementation()
 	{
 		UGameplayStatics::SpawnSoundAtLocation(this, ElimBotSound, GetActorLocation());
 	}
+
+	// 스나이퍼 줌하고 있는 상태였을 때 줌아웃하도록함
+	if (IsLocallyControlled() && Combat && Combat->bAiming && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle)
+	{
+		ShowSniperScopeWidget(false);
+	}
 }
 
 void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
@@ -404,6 +410,12 @@ void ABlasterCharacter::PlayReloadMontage()
 			SectionName = TEXT("Rifle");
 			break;
 		case EWeaponType::EWT_SubmachineGun:
+			SectionName = TEXT("Rifle");
+			break;
+		case EWeaponType::EWT_ShotGun:
+			SectionName = TEXT("Rifle");
+			break;
+		case EWeaponType::EWT_SniperRifle:
 			SectionName = TEXT("Rifle");
 			break;
 		default:
