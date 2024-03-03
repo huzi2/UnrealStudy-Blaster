@@ -67,7 +67,9 @@ public:
 	void Dropped();
 	void SetHUDAmmo();
 	bool IsEmpty() const;
+	bool IsFull() const;
 	void AddAmmo(int32 AmmoToAdd);
+	void EnableCustomDepth(bool bEnable);
 
 private:
 	void SpendRound();

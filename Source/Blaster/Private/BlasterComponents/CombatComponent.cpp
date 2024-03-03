@@ -12,6 +12,7 @@
 #include "Camera/CameraComponent.h"
 #include "TimerManager.h"
 #include "Sound/SoundCue.h"
+#include "Character/BlasterAnimInstance.h"
 
 UCombatComponent::UCombatComponent()
 	: BaseWalkSpeed(600.f)
@@ -113,6 +114,15 @@ void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& T
 {
 	if (!Character) return;
 	if (!EquippedWeapon) return;
+
+	// 샷건은 장전 중에 쏠 수 있음
+	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
+	{
+		Character->PlayFireMontage(bAiming);
+		EquippedWeapon->Fire(TraceHitTarget);
+		CombatState = ECombatState::ECS_Unoccupied;
+		return;
+	}
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
 	// 발사 모션과 발사 이펙트가 모든 클라이언트에서 보이도록 멀티캐스트
@@ -133,6 +143,8 @@ void UCombatComponent::FinishReloading()
 {
 	// 애니메이션 블루프린트에서 리로드 모션 끝나면 호출할 함수
 	if (!Character) return;
+
+	// 탄약 갱신은 서버에서만 작동
 	if (Character->HasAuthority())
 	{
 		CombatState = ECombatState::ECS_Unoccupied;
@@ -145,6 +157,15 @@ void UCombatComponent::FinishReloading()
 	if (bFireButtonPressed)
 	{
 		Fire();
+	}
+}
+
+void UCombatComponent::ShotgunShellReload()
+{
+	// 샷건 탄약 채우는 건 서버에서만 발동
+	if (Character && Character->HasAuthority())
+	{
+		UpdateShotgunAmmoValues();
 	}
 }
 
@@ -248,6 +269,19 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	if (bFireButtonPressed)
 	{
 		Fire();
+	}
+}
+
+void UCombatComponent::JumpToShotgunEnd()
+{
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+	if (!Character->GetReloadMontage()) return;
+
+	UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance();
+	if (AnimInstance && Character->GetReloadMontage())
+	{
+		AnimInstance->Montage_JumpToSection(TEXT("ShotgunEnd"));
 	}
 }
 
@@ -435,6 +469,10 @@ bool UCombatComponent::CanFire() const
 	if (!EquippedWeapon) return false;
 	if (EquippedWeapon->IsEmpty()) return false;
 	if (!bCanFire) return false;
+
+	// 샷건은 장전 중에 쏠 수 있음
+	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true;
+
 	if (CombatState != ECombatState::ECS_Unoccupied) return false;
 	return true;
 }
@@ -508,6 +546,36 @@ void UCombatComponent::UpdateAmmoValues()
 	EquippedWeapon->AddAmmo(ReloadAmount);
 }
 
+void UCombatComponent::UpdateShotgunAmmoValues()
+{
+	if (!EquippedWeapon) return;
+
+	// 샷건은 천천히 1발씩 장전하므로 따로 구현
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] -= 1;
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+
+		CheckInit();
+		if (Controller)
+		{
+			Controller->SetHUDCarriedAmmo(CarriedAmmo);
+		}
+	}
+
+	EquippedWeapon->AddAmmo(1);
+
+	// 샷건은 한발 충전할 때마다 바로 쏠 수 있음
+	bCanFire = true;
+
+	// 샷건은 한발씩 장전하다가 다차거나 장전할 게 없으면 바로 End 몽타주로 이동
+	// 이 부분은 서버만 적용되면 안됨. 그래서 클라에서도 따로 호출
+	if (EquippedWeapon->IsFull() || CarriedAmmo == 0)
+	{
+		JumpToShotgunEnd();
+	}
+}
+
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	bCanFire = true;
@@ -543,6 +611,12 @@ void UCombatComponent::OnRep_CarriedAmmo()
 	if (Controller)
 	{
 		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+
+	// 샷건 장전 중 장전할 탄약이 없으면 End 몽타주로 이동하는 부분 클라에서 수행
+	if (CarriedAmmo == 0 && CombatState == ECombatState::ECS_Reloading && EquippedWeapon && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
+	{
+		JumpToShotgunEnd();
 	}
 }
 

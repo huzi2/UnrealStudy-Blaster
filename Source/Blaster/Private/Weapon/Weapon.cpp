@@ -8,6 +8,7 @@
 #include "Weapon/Casing.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "PlayerController/BlasterPlayerController.h"
+#include "BlasterComponents/CombatComponent.h"
 
 AWeapon::AWeapon()
 	: ZoomedFOV(30.f)
@@ -27,6 +28,10 @@ AWeapon::AWeapon()
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// 무기 외곽 강조 처리를 위한 스텐실 버퍼 값 적용
+	WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
+	WeaponMesh->MarkRenderStateDirty();
+	EnableCustomDepth(true);
 
 	AreaSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AreaSphere"));
 	AreaSphere->SetupAttachment(GetRootComponent());
@@ -158,6 +163,9 @@ void AWeapon::SetWeaponState(EWeaponState State)
 				WeaponMesh->SetEnableGravity(false);
 			}
 		}
+
+		// 무기 외곽 강조 효과 끔
+		EnableCustomDepth(false);
 		break;
 	case EWeaponState::EWS_Dropped:
 		// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
@@ -177,6 +185,11 @@ void AWeapon::SetWeaponState(EWeaponState State)
 			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 		}
+
+		// 무기 외곽 강조 효과 킴
+		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
+		WeaponMesh->MarkRenderStateDirty();
+		EnableCustomDepth(true);
 		break;
 	default:
 		break;
@@ -223,10 +236,25 @@ bool AWeapon::IsEmpty() const
 	return Ammo <= 0;
 }
 
+bool AWeapon::IsFull() const
+{
+	return Ammo == MagCapacity;
+}
+
 void AWeapon::AddAmmo(int32 AmmoToAdd)
 {
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	SetHUDAmmo();
+}
+
+void AWeapon::EnableCustomDepth(bool bEnable)
+{
+	// 포스트 프로세스와 포스트 프로세스 머티리얼을 통한 스텐실 효과를 사용한 무기 외곽 강조 처리
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetRenderCustomDepth(bEnable);
+
+	}
 }
 
 void AWeapon::SpendRound()
@@ -274,6 +302,7 @@ void AWeapon::OnRep_WeaponState()
 			}
 		}
 
+		EnableCustomDepth(false);
 		break;
 	case EWeaponState::EWS_Dropped:
 		if (WeaponMesh)
@@ -285,6 +314,10 @@ void AWeapon::OnRep_WeaponState()
 			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 		}
+
+		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
+		WeaponMesh->MarkRenderStateDirty();
+		EnableCustomDepth(true);
 		break;
 	default:
 		break;
@@ -295,4 +328,11 @@ void AWeapon::OnRep_Ammo()
 {
 	// 클라이언트에 탄약 적용
 	SetHUDAmmo();
+
+	// 샷건 장전 중 탄약 꽉찼을 때 애니메이션 변경하는걸 컴뱃컴포넌트에서 수행하는데 서버에서만 하고있음
+	// 클라에서 하는건 여기서 하드코딩으로 작업
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull())
+	{
+		BlasterOwnerCharacter->GetCombat()->JumpToShotgunEnd();
+	}
 }

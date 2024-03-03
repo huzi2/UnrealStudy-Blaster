@@ -44,11 +44,15 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void FinishReloading();
 
+	UFUNCTION(BlueprintCallable)
+	void ShotgunShellReload();
+
 public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void SetAiming(bool bIsAiming);
 	void Reload();
 	void FireButtonPressed(bool bPressed);
+	void JumpToShotgunEnd();
 
 private:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
@@ -63,6 +67,7 @@ private:
 	void HandleReload();
 	int32 AmountToReload() const;
 	void UpdateAmmoValues();
+	void UpdateShotgunAmmoValues();
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
