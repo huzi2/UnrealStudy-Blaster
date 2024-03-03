@@ -2,7 +2,6 @@
 
 #include "Weapon/ProjectileRocket.h"
 #include "Kismet/GameplayStatics.h"
-#include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystemInstance.h"
 #include "Sound/SoundCue.h"
@@ -11,11 +10,10 @@
 #include "Weapon/RocketMovementComponent.h"
 
 AProjectileRocket::AProjectileRocket()
-	: DestroyTime(3.f)
 {
-	RocketMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RocketMesh"));
-	RocketMesh->SetupAttachment(GetRootComponent());
-	RocketMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ProjectileMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RocketMesh"));
+	ProjectileMesh->SetupAttachment(GetRootComponent());
+	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	RocketMovementComponent = CreateDefaultSubobject<URocketMovementComponent>(TEXT("RocketMovementComponent"));
 	RocketMovementComponent->bRotationFollowsVelocity = true;
@@ -32,10 +30,7 @@ void AProjectileRocket::BeginPlay()
 		CollisionBox->OnComponentHit.AddDynamic(this, &ThisClass::OnHit);
 	}
 
-	if (TrailSystem)
-	{
-		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(TrailSystem, GetRootComponent(), FName(), GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition, false);
-	}
+	SpawnTrailSystem();
 
 	if (ProjectileLoop && LoopingSoundAttenuation)
 	{
@@ -50,25 +45,15 @@ void AProjectileRocket::Destroyed()
 
 void AProjectileRocket::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	// 발사자는 안맞도록
+	// 발사하자마자 발사자가 맞지 않도록한다. 하지만 폭발할 때는 발사자도 맞는다.
 	if (OtherActor == GetOwner()) return;
 
-	if (HasAuthority())
-	{
-		if (APawn* FiringPawn = GetInstigator())
-		{
-			if (AController* FiringController = FiringPawn->GetController())
-			{
-				// 거리에 따라 다른 데미지를 입히는 범위형 데미지를 입힘
-				UGameplayStatics::ApplyRadialDamageWithFalloff(this, Damage, 10.f, GetActorLocation(), 200.f, 500.f, 1.f, UDamageType::StaticClass(), TArray<AActor*>(), this, FiringController);
-			}
-		}
-	}
+	ExplodeDamage();
 
 	// 제거 대신 메쉬를 숨김
-	if (RocketMesh)
+	if (ProjectileMesh)
 	{
-		RocketMesh->SetVisibility(false);
+		ProjectileMesh->SetVisibility(false);
 	}
 
 	if (CollisionBox)
@@ -77,7 +62,7 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, 
 	}
 
 	// 이펙트 생성을 중지
-	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstance())
+	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstanceController())
 	{
 		TrailSystemComponent->GetSystemInstance()->Deactivate();
 	}
@@ -99,10 +84,5 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, 
 	}
 
 	// 로켓은 이펙트나 사운드가 히트 이후에도 계속 나와야하므로 객체 제거를 조금 미룸
-	GetWorldTimerManager().SetTimer(DestroyTimer, this, &ThisClass::DestroyTimerFinished, DestroyTime);
-}
-
-void AProjectileRocket::DestroyTimerFinished()
-{
-	Destroy();
+	StartDestroyTimer();
 }

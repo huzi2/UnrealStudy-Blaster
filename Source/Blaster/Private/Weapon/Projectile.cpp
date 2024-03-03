@@ -6,9 +6,13 @@
 #include "Sound/SoundCue.h"
 #include "Character/BlasterCharacter.h"
 #include "Blaster/Blaster.h"
+#include "NiagaraFunctionLibrary.h"
 
 AProjectile::AProjectile()
 	: Damage(20.f)
+	, DestroyTime(3.f)
+	, DamageInnerRadius(200.f)
+	, DamageOuterRadius(500.f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 생성은 서버에서만 진행하고 클라들은 복사본만 얻어옴
@@ -69,5 +73,39 @@ void AProjectile::Destroyed()
 void AProjectile::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	// 서버에서는 액터 제거만 호출한다.
+	Destroy();
+}
+
+void AProjectile::SpawnTrailSystem()
+{
+	if (TrailSystem)
+	{
+		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(TrailSystem, GetRootComponent(), FName(), GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition, false);
+	}
+}
+
+void AProjectile::StartDestroyTimer()
+{
+	GetWorldTimerManager().SetTimer(DestroyTimer, this, &ThisClass::DestroyTimerFinished, DestroyTime);
+}
+
+void AProjectile::ExplodeDamage()
+{
+	// 데미지는 서버에서만 처리
+	if (HasAuthority())
+	{
+		if (APawn* FiringPawn = GetInstigator())
+		{
+			if (AController* FiringController = FiringPawn->GetController())
+			{
+				// 거리에 따라 다른 데미지를 입히는 범위형 데미지를 입힘
+				UGameplayStatics::ApplyRadialDamageWithFalloff(this, Damage, 10.f, GetActorLocation(), DamageInnerRadius, DamageOuterRadius, 1.f, UDamageType::StaticClass(), TArray<AActor*>(), this, FiringController);
+			}
+		}
+	}
+}
+
+void AProjectile::DestroyTimerFinished()
+{
 	Destroy();
 }

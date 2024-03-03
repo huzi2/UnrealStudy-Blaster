@@ -24,6 +24,7 @@ UCombatComponent::UCombatComponent()
 	, StartingSMGAmmo(0)
 	, StartingShotgunAmmo(0)
 	, StartingSniperAmmo(0)
+	, StartingGrenaderLauncherAmmo(0)
 	, CombatState(ECombatState::ECS_Unoccupied)
 	, bCanFire(true)
 {
@@ -446,6 +447,7 @@ void UCombatComponent::InitializeCarriedAmmo()
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_SubmachineGun, StartingSMGAmmo);
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_ShotGun, StartingShotgunAmmo);
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_SniperRifle, StartingSniperAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_GrenaderLauncher, StartingGrenaderLauncherAmmo);
 }
 
 void UCombatComponent::CheckInit()
