@@ -12,6 +12,7 @@
 class AWeapon;
 class ABlasterPlayerController;
 class ABlasterHUD;
+class AProjectile;
 
 // 캐릭터의 무기 관리 컴포넌트
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -41,11 +42,20 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerReload();
 
+	UFUNCTION(Server, Reliable)
+	void ServerThrowGrenade();
+
 	UFUNCTION(BlueprintCallable)
 	void FinishReloading();
 
 	UFUNCTION(BlueprintCallable)
 	void ShotgunShellReload();
+
+	UFUNCTION(BlueprintCallable)
+	void ThrowGrenadeFinished();
+
+	UFUNCTION(BlueprintCallable)
+	void LaunchGrenade();
 
 public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
@@ -53,6 +63,7 @@ public:
 	void Reload();
 	void FireButtonPressed(bool bPressed);
 	void JumpToShotgunEnd();
+	void ThrowGrenade();
 
 private:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
@@ -68,6 +79,13 @@ private:
 	int32 AmountToReload() const;
 	void UpdateAmmoValues();
 	void UpdateShotgunAmmoValues();
+	void DropEquippedWedapon();
+	void AttachActorToRightHand(AActor* ActorToAttach);
+	void AttachActorToLeftHand(AActor* ActorToAttach);
+	void UpdateCarriedAmmo();
+	void PlayEquipWeaponSound();
+	void ReloadEmptyWeapon();
+	void ShowAttachedGrenade(bool bShowGrenade);
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -111,6 +129,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	int32 StartingGrenaderLauncherAmmo;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TSubclassOf<AProjectile> GrenadeClass;
 
 	// TMap은 레플리케이션이 안되서 레플리케이션하기 위한 변수임
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)

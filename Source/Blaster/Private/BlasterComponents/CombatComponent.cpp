@@ -13,6 +13,7 @@
 #include "TimerManager.h"
 #include "Sound/SoundCue.h"
 #include "Character/BlasterAnimInstance.h"
+#include "Weapon/Projectile.h"
 
 UCombatComponent::UCombatComponent()
 	: BaseWalkSpeed(600.f)
@@ -139,6 +140,20 @@ void UCombatComponent::ServerReload_Implementation()
 	HandleReload();
 }
 
+void UCombatComponent::ServerThrowGrenade_Implementation()
+{
+	if (!Character) return;
+
+	// .상태를 변경해서 다른 클라들도 OnRep_CombatState를 통해서 수류탄을 던질 수 있게함
+	CombatState = ECombatState::ECS_ThrowingGrenade;
+
+	Character->PlayThrowGrenadeMontage();
+
+	AttachActorToLeftHand(EquippedWeapon);
+
+	ShowAttachedGrenade(true);
+}
+
 void UCombatComponent::FinishReloading()
 {
 	// 애니메이션 블루프린트에서 리로드 모션 끝나면 호출할 함수
@@ -169,17 +184,43 @@ void UCombatComponent::ShotgunShellReload()
 	}
 }
 
+void UCombatComponent::ThrowGrenadeFinished()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+
+	// 왼손으로 잠시 들었던 무기 다시 오른손으로
+	AttachActorToRightHand(EquippedWeapon);
+}
+
+void UCombatComponent::LaunchGrenade()
+{
+	ShowAttachedGrenade(false);
+
+	// 수류탄 생성은 서버에서
+	if (Character && Character->HasAuthority() && Character->GetAttachedGrenade() && GrenadeClass)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			const FVector StartingLocation = Character->GetAttachedGrenade()->GetComponentLocation();
+			// 방향은 십자선 기준
+			const FVector ToTarget = HitTarget - StartingLocation;
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = Character;
+			SpawnParams.Instigator = Character;
+
+			World->SpawnActor<AProjectile>(GrenadeClass, StartingLocation, ToTarget.Rotation(), SpawnParams);
+		}
+	}
+}
+
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!Character || !WeaponToEquip) return;
-
-	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->Dropped();
-	}
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
 	bCanFire = true;
+	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
+	DropEquippedWedapon();
 
 	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
 	// 하지만 아래 내용이 적용되고 복사될 지, 복사 먼저되서 내용 적용이 안될지는 레플리케이션 타이밍에 따라 다름
@@ -187,39 +228,21 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 
-	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("RightHandSocket"));
-	if (HandSocket)
-	{
-		HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
-	}
+	// 무기를 오른손에 붙임
+	AttachActorToRightHand(EquippedWeapon);
 
 	// Owner은 서버에서 세팅하고 클라에 레플리케이션되는 변수
 	EquippedWeapon->SetOwner(Character);
 	// 서버에 탄약 적용
 	EquippedWeapon->SetHUDAmmo();
 
-	// 서버에 무기의 맥시멈 탄약 수 설정
-	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
-	{
-		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
-	}
+	// 무기 타입에 따라 가지고 있는 탄약 표시
+	UpdateCarriedAmmo();
 
-	CheckInit();
-	if (Controller)
-	{
-		Controller->SetHUDCarriedAmmo(CarriedAmmo);
-	}
-
-	if (EquippedWeapon->GetEquipSound())
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
-	}
+	PlayEquipWeaponSound();
 
 	// 무기 장착 후 탄약이 없으면 자동 재장전
-	if (EquippedWeapon->IsEmpty())
-	{
-		Reload();
-	}
+	ReloadEmptyWeapon();
 
 	// 무기를 낀 후에는 정면을 조준하면서 이동하도록 함
 	if (Character->GetCharacterMovement())
@@ -255,7 +278,7 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 
 void UCombatComponent::Reload()
 {
-	if (CarriedAmmo > 0 && CombatState != ECombatState::ECS_Reloading)
+	if (CarriedAmmo > 0 && CombatState == ECombatState::ECS_Unoccupied && EquippedWeapon && !EquippedWeapon->IsFull())
 	{
 		ServerReload();
 	}
@@ -282,6 +305,29 @@ void UCombatComponent::JumpToShotgunEnd()
 	if (AnimInstance && Character->GetReloadMontage())
 	{
 		AnimInstance->Montage_JumpToSection(TEXT("ShotgunEnd"));
+	}
+}
+
+void UCombatComponent::ThrowGrenade()
+{
+	if (!Character) return;
+	if (!EquippedWeapon) return;
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
+	
+	// 캐릭터에서 버튼 누르면서 호출하는 함수로 로컬 클라이언트에서 실행됨
+	CombatState = ECombatState::ECS_ThrowingGrenade;
+
+	Character->PlayThrowGrenadeMontage();
+
+	// 들고있던 무기를 왼손으로
+	AttachActorToLeftHand(EquippedWeapon);
+
+	ShowAttachedGrenade(true);
+
+	// 클라에서 호출했다면 서버에서도 알도록 호출
+	if (!Character->HasAuthority())
+	{
+		ServerThrowGrenade();
 	}
 }
 
@@ -458,10 +504,7 @@ void UCombatComponent::FireTimerFinished()
 	}
 
 	// 무기 발사 후 탄약이 없으면 자동 재장전
-	if (EquippedWeapon->IsEmpty())
-	{
-		Reload();
-	}
+	ReloadEmptyWeapon();
 }
 
 bool UCombatComponent::CanFire() const
@@ -576,6 +619,83 @@ void UCombatComponent::UpdateShotgunAmmoValues()
 	}
 }
 
+void UCombatComponent::DropEquippedWedapon()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Dropped();
+	}
+}
+
+void UCombatComponent::AttachActorToRightHand(AActor* ActorToAttach)
+{
+	if (!ActorToAttach) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("RightHandSocket"));
+	if (HandSocket)
+	{
+		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
+	}
+}
+
+void UCombatComponent::AttachActorToLeftHand(AActor* ActorToAttach)
+{
+	if (!ActorToAttach) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("LeftHandSocket"));
+	if (HandSocket)
+	{
+		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
+	}
+}
+
+void UCombatComponent::UpdateCarriedAmmo()
+{
+	if (!EquippedWeapon) return;
+
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+	}
+
+	CheckInit();
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+}
+
+void UCombatComponent::PlayEquipWeaponSound()
+{
+	if (!EquippedWeapon) return;
+	if (!Character) return;
+
+	if (EquippedWeapon->GetEquipSound())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
+	}
+}
+
+void UCombatComponent::ReloadEmptyWeapon()
+{
+	if (EquippedWeapon && EquippedWeapon->IsEmpty())
+	{
+		Reload();
+	}
+}
+
+void UCombatComponent::ShowAttachedGrenade(bool bShowGrenade)
+{
+	if (Character && Character->GetAttachedGrenade())
+	{
+		Character->GetAttachedGrenade()->SetVisibility(bShowGrenade);
+	}
+}
+
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	bCanFire = true;
@@ -585,16 +705,9 @@ void UCombatComponent::OnRep_EquippedWeapon()
 		// 아래 내용은 EquippedWeapon을 레플리케이션할 때 적용되었을 수도 있지만 타이밍에 따라 안될수도 있어서 한번 더 적용
 		EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 
-		const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("RightHandSocket"));
-		if (HandSocket)
-		{
-			HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
-		}
+		AttachActorToRightHand(EquippedWeapon);
 
-		if (EquippedWeapon->GetEquipSound())
-		{
-			UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
-		}
+		PlayEquipWeaponSound();
 
 		if (Character->GetCharacterMovement())
 		{
@@ -632,6 +745,17 @@ void UCombatComponent::OnRep_CombatState()
 		break;
 	case ECombatState::ECS_Reloading:
 		HandleReload();
+		break;
+	case ECombatState::ECS_ThrowingGrenade:
+		// 로컬 클라는 이미 버튼 누르면서 수행했고, 다른 클라들이 알 수 있도록 애니메이션 재생
+		if (Character && !Character->IsLocallyControlled())
+		{
+			Character->PlayThrowGrenadeMontage();
+
+			AttachActorToLeftHand(EquippedWeapon);
+
+			ShowAttachedGrenade(true);
+		}
 		break;
 	default:
 		break;

@@ -68,6 +68,7 @@ public:
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
 	FORCEINLINE bool IsElimmed() const { return bElimmed; }
+	FORCEINLINE UStaticMeshComponent* GetAttachedGrenade() const { return AttachedGrenade; }
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
 	FORCEINLINE void SetDisableGameplay(bool bDisable) { bDisableGameplay = bDisable; }
 	AWeapon* GetEquippedWeapon() const;
@@ -81,6 +82,7 @@ public:
 	void PlayReloadMontage();
 	void PlayHitReactMontage();
 	void PlayElimMontage();
+	void PlayThrowGrenadeMontage();
 	void Elim();
 
 private:
@@ -95,6 +97,7 @@ private:
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void ReloadButtonPressed();
+	void ThrowGrenadeButtonPressed();
 
 	void AimOffset(float DeltaTime);
 	void SimProxiesTurn();
@@ -142,6 +145,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TObjectPtr<UAnimMontage> ElimMontage;
 
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TObjectPtr<UAnimMontage> ThrowGrenadeMontage;
+
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	float MaxHealth;
 
@@ -174,6 +180,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Elim")
 	TObjectPtr<USoundCue> ElimBotSound;
+
+	UPROPERTY(VisibleAnywhere, Category = "Grenade")
+	TObjectPtr<UStaticMeshComponent> AttachedGrenade;
 
 	// 쿨다운 상태일 때 특정 입력을 막기 위함
 	UPROPERTY(Replicated)
@@ -211,6 +220,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> ReloadInputAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> ThrowGrenadeInputAction;
 
 	UPROPERTY()
 	TObjectPtr<ABlasterPlayerController> BlasterPlayerController;
