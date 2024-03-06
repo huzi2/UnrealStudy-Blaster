@@ -53,7 +53,7 @@ void AWeapon::BeginPlay()
 	}
 
 	// 충돌 처리는 서버에서만 진행하도록 함
-	if (HasAuthority())
+	if (HasAuthority() && AreaSphere)
 	{
 		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);

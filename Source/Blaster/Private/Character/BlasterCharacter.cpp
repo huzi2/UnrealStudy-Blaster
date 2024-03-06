@@ -298,6 +298,8 @@ void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 
 void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
 {
+	if (bElimmed) return;
+
 	// 데미지 처리는 서버에서만 수행됨. 여기 내용들은 서버에서 실행된다.
 	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
 

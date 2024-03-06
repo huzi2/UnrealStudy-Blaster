@@ -45,6 +45,9 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerThrowGrenade();
 
+	UFUNCTION(Server, Reliable)
+	void ServerLaunchGrenade(const FVector_NetQuantize& Target);
+
 	UFUNCTION(BlueprintCallable)
 	void FinishReloading();
 
@@ -58,12 +61,15 @@ private:
 	void LaunchGrenade();
 
 public:
+	FORCEINLINE int32 GetGrenades() const { return Grenades; }
+
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void SetAiming(bool bIsAiming);
 	void Reload();
 	void FireButtonPressed(bool bPressed);
 	void JumpToShotgunEnd();
 	void ThrowGrenade();
+	void PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount);
 
 private:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
@@ -86,6 +92,7 @@ private:
 	void PlayEquipWeaponSound();
 	void ReloadEmptyWeapon();
 	void ShowAttachedGrenade(bool bShowGrenade);
+	void UpdateHUDGrenades();
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -131,7 +138,13 @@ private:
 	int32 StartingGrenaderLauncherAmmo;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 MaxGrenades;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	TSubclassOf<AProjectile> GrenadeClass;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	int32 MaxCarriedAmmo;
 
 	// TMap은 레플리케이션이 안되서 레플리케이션하기 위한 변수임
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
@@ -145,6 +158,12 @@ private:
 
 	UFUNCTION()
 	void OnRep_CombatState();
+
+	UPROPERTY(ReplicatedUsing = OnRep_Grenades)
+	int32 Grenades;
+
+	UFUNCTION()
+	void OnRep_Grenades();
 
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;

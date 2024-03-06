@@ -53,6 +53,7 @@ public:
 	void SetHUDCarriedAmmo(int32 Ammo);
 	void SetHUDMatchCountdown(float CounddownTime);
 	void SetHUDAnnouncementCountdown(float CounddownTime);
+	void SetHUDGrenades(int32 Grenades);
 	float GetServerTime() const;
 	void OnMatchStateSet(const FName& State);
 
@@ -100,4 +101,5 @@ private:
 	float HUDMaxHealth;
 	float HUDScore;
 	int32 HUDDefeats;
+	int32 HUDGrenades;
 };

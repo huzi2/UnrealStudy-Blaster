@@ -27,7 +27,10 @@ UCombatComponent::UCombatComponent()
 	, StartingShotgunAmmo(0)
 	, StartingSniperAmmo(0)
 	, StartingGrenaderLauncherAmmo(0)
+	, MaxGrenades(4)
+	, MaxCarriedAmmo(500)
 	, CombatState(ECombatState::ECS_Unoccupied)
+	, Grenades(4)
 	, bCanFire(true)
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -92,6 +95,8 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo, COND_OwnerOnly);
 
 	DOREPLIFETIME(UCombatComponent, CombatState);
+
+	DOREPLIFETIME(UCombatComponent, Grenades);
 }
 
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
@@ -142,6 +147,7 @@ void UCombatComponent::ServerReload_Implementation()
 
 void UCombatComponent::ServerThrowGrenade_Implementation()
 {
+	if (Grenades <= 0) return;
 	if (!Character) return;
 
 	// .상태를 변경해서 다른 클라들도 OnRep_CombatState를 통해서 수류탄을 던질 수 있게함
@@ -152,6 +158,28 @@ void UCombatComponent::ServerThrowGrenade_Implementation()
 	AttachActorToLeftHand(EquippedWeapon);
 
 	ShowAttachedGrenade(true);
+
+	// 서버에서는 추가로 수류탄의 개수를 조정한다. 이 변수는 레플리케이션되는 변수라 클라들도 알게됨
+	Grenades = FMath::Clamp(Grenades - 1, 0, MaxGrenades);
+	UpdateHUDGrenades();
+}
+
+void UCombatComponent::ServerLaunchGrenade_Implementation(const FVector_NetQuantize& Target)
+{
+	if (Character && Character->GetAttachedGrenade() && GrenadeClass)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			const FVector StartingLocation = Character->GetAttachedGrenade()->GetComponentLocation();
+			// 방향은 십자선 기준
+			const FVector ToTarget = Target - StartingLocation;
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = Character;
+			SpawnParams.Instigator = Character;
+
+			World->SpawnActor<AProjectile>(GrenadeClass, StartingLocation, ToTarget.Rotation(), SpawnParams);
+		}
+	}
 }
 
 void UCombatComponent::FinishReloading()
@@ -196,20 +224,11 @@ void UCombatComponent::LaunchGrenade()
 {
 	ShowAttachedGrenade(false);
 
-	// 수류탄 생성은 서버에서
-	if (Character && Character->HasAuthority() && Character->GetAttachedGrenade() && GrenadeClass)
+	// HitTarget 변수는 서버에서만, 그리고 로컬 클라에서만 계산된다.
+	if (Character && Character->IsLocallyControlled())
 	{
-		if (UWorld* World = GetWorld())
-		{
-			const FVector StartingLocation = Character->GetAttachedGrenade()->GetComponentLocation();
-			// 방향은 십자선 기준
-			const FVector ToTarget = HitTarget - StartingLocation;
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = Character;
-			SpawnParams.Instigator = Character;
-
-			World->SpawnActor<AProjectile>(GrenadeClass, StartingLocation, ToTarget.Rotation(), SpawnParams);
-		}
+		// 수류탄 생성은 서버에서
+		ServerLaunchGrenade(HitTarget);
 	}
 }
 
@@ -310,6 +329,7 @@ void UCombatComponent::JumpToShotgunEnd()
 
 void UCombatComponent::ThrowGrenade()
 {
+	if (Grenades <= 0) return;
 	if (!Character) return;
 	if (!EquippedWeapon) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
@@ -328,6 +348,28 @@ void UCombatComponent::ThrowGrenade()
 	if (!Character->HasAuthority())
 	{
 		ServerThrowGrenade();
+	}
+
+	// 서버에서는 추가로 수류탄의 개수를 조정한다. 이 변수는 레플리케이션되는 변수라 클라들도 알게됨
+	if (Character->HasAuthority())
+	{
+		Grenades = FMath::Clamp(Grenades - 1, 0, MaxGrenades);
+		UpdateHUDGrenades();
+	}
+}
+
+void UCombatComponent::PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount)
+{
+	if (CarriedAmmoMap.Contains(WeaponType))
+	{
+		CarriedAmmoMap[WeaponType] = FMath::Clamp(CarriedAmmoMap[WeaponType] + AmmoAmount, 0, MaxCarriedAmmo);
+		UpdateCarriedAmmo();
+	}
+
+	// 탄약을 먹었는데 탄약이 비어있는 상태면 자동 재장전
+	if (EquippedWeapon && EquippedWeapon->IsEmpty() && EquippedWeapon->GetWeaponType() == WeaponType)
+	{
+		Reload();
 	}
 }
 
@@ -696,6 +738,15 @@ void UCombatComponent::ShowAttachedGrenade(bool bShowGrenade)
 	}
 }
 
+void UCombatComponent::UpdateHUDGrenades()
+{
+	CheckInit();
+	if (Controller)
+	{
+		Controller->SetHUDGrenades(Grenades);
+	}
+}
+
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	bCanFire = true;
@@ -760,4 +811,9 @@ void UCombatComponent::OnRep_CombatState()
 	default:
 		break;
 	}
+}
+
+void UCombatComponent::OnRep_Grenades()
+{
+	UpdateHUDGrenades();
 }
