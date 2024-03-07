@@ -20,6 +20,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "PlayerState/BlasterPlayerState.h"
 #include "Weapon/WeaponTypes.h"
+#include "BlasterComponents/BuffComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -57,6 +58,9 @@ ABlasterCharacter::ABlasterCharacter()
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("Combat"));
 	Combat->SetIsReplicated(true);
+
+	Buff = CreateDefaultSubobject<UBuffComponent>(TEXT("Buff"));
+	Buff->SetIsReplicated(true);
 
 	DissolveTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimeline"));
 
@@ -119,6 +123,17 @@ void ABlasterCharacter::PostInitializeComponents()
 	if (Combat)
 	{
 		Combat->Character = this;
+	}
+
+	if (Buff)
+	{
+		Buff->Character = this;
+
+		if (GetCharacterMovement())
+		{
+			Buff->SetInitialSpeeds(GetCharacterMovement()->MaxWalkSpeed, GetCharacterMovement()->MaxWalkSpeedCrouched);
+			Buff->SetInitialJumpVelocity(GetCharacterMovement()->JumpZVelocity);
+		}
 	}
 }
 
@@ -491,6 +506,14 @@ void ABlasterCharacter::Elim()
 	GetWorldTimerManager().SetTimer(ElimTimer, this, &ThisClass::ElimTimerFinished, ElimDelay);
 }
 
+void ABlasterCharacter::UpdateHUDHealth()
+{
+	if (BlasterPlayerController)
+	{
+		BlasterPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
 {
 	if (bDisableGameplay) return;
@@ -791,14 +814,6 @@ double ABlasterCharacter::CaculateSpeed() const
 	return Velocity.Size();
 }
 
-void ABlasterCharacter::UpdateHUDHealth()
-{
-	if (BlasterPlayerController)
-	{
-		BlasterPlayerController->SetHUDHealth(Health, MaxHealth);
-	}
-}
-
 void ABlasterCharacter::ElimTimerFinished()
 {
 	// 게임모드에서 캐릭터 부활 요청. 게임모드는 서버에만 존재해서 서버에서만 처리될 것
@@ -880,10 +895,14 @@ void ABlasterCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	}
 }
 
-void ABlasterCharacter::OnRep_Health()
+void ABlasterCharacter::OnRep_Health(float LastHealth)
 {
 	// 데미지 처리되면서 Health가 변경되고 레플리케이션 되면서 여기 함수가 호출된다.
 	// 서버에서 데미지 처리하면서 하는 내용들을 클라에서도 똑같이 함
 	UpdateHUDHealth();
-	PlayHitReactMontage();
+
+	if (Health < LastHealth)
+	{
+		PlayHitReactMontage();
+	}
 }

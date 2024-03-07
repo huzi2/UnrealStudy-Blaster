@@ -14,6 +14,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UWidgetComponent;
 class UCombatComponent;
+class UBuffComponent;
 class AWeapon;
 class ABlasterPlayerController;
 class USoundCue;
@@ -60,8 +61,10 @@ private:
 public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
+	FORCEINLINE UBuffComponent* GetBuff() const { return Buff; }
 	FORCEINLINE UAnimMontage* GetReloadMontage() const { return ReloadMontage; }
 	FORCEINLINE float GetHealth() const { return Health; }
+	FORCEINLINE void SetHealth(float Amount) { Health = Amount; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
@@ -84,6 +87,7 @@ public:
 	void PlayElimMontage();
 	void PlayThrowGrenadeMontage();
 	void Elim();
+	void UpdateHUDHealth();
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -105,7 +109,6 @@ private:
 	void HideCameraIfCharacterClose();
 	void CalculateAO_Pitch();
 	double CaculateSpeed() const;
-	void UpdateHUDHealth();
 	void ElimTimerFinished();
 	void StartDissolve();
 	void PollInit();
@@ -126,6 +129,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCombatComponent> Combat;
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UBuffComponent> Buff;
 
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	TObjectPtr<AWeapon> OverlappingWeapon;
@@ -155,7 +161,7 @@ private:
 	float Health;
 
 	UFUNCTION()
-	void OnRep_Health();
+	void OnRep_Health(float LastHealth);
 
 	UPROPERTY(EditDefaultsOnly, Category = "Elim")
 	float ElimDelay;
