@@ -30,6 +30,8 @@ ABlasterCharacter::ABlasterCharacter()
 	: CameraThreshlod(200.0)
 	, MaxHealth(100.f)
 	, Health(100.f)
+	, MaxShield(100.f)
+	, Shield(0.f)
 	, ElimDelay(3.f)
 	, bDisableGameplay(false)
 	, TurnThreshold(0.5f)
@@ -103,6 +105,7 @@ void ABlasterCharacter::BeginPlay()
 	// 그래서 게임 중 재생성에 대해서는 컨트롤러의 OnPossess()에서 처리한다.
 	// 근데 여기에 이 함수를 남겨두는 건 최초 실행할 때는 컨트롤러보다 UI가 나중에 생성되면 OnPossess()가 의미가 없기 때문
 	UpdateHUDHealth();
+	UpdateHUDShield();
 
 	// 데미지 처리는 서버만
 	if (HasAuthority())
@@ -205,6 +208,7 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME_CONDITION(ABlasterCharacter, OverlappingWeapon, COND_OwnerOnly);
 
 	DOREPLIFETIME(ABlasterCharacter, Health);
+	DOREPLIFETIME(ABlasterCharacter, Shield);
 	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 }
 
@@ -316,9 +320,25 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 	if (bElimmed) return;
 
 	// 데미지 처리는 서버에서만 수행됨. 여기 내용들은 서버에서 실행된다.
-	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+	float DamageToHealth = Damage;
+	if (Shield > 0.f)
+	{
+		if (Shield >= Damage)
+		{
+			Shield = FMath::Clamp(Shield - Damage, 0.f, MaxShield);
+			DamageToHealth = 0.f;
+		}
+		else
+		{
+			Shield = 0.f;
+			DamageToHealth = FMath::Clamp(DamageToHealth - Shield, 0.f, Damage);
+		}
+	}
+
+	Health = FMath::Clamp(Health - DamageToHealth, 0.f, MaxHealth);
 
 	UpdateHUDHealth();
+	UpdateHUDShield();
 	PlayHitReactMontage();
 
 	// 체력이 0이되면 게임모드에서 캐릭터 제거
@@ -511,6 +531,14 @@ void ABlasterCharacter::UpdateHUDHealth()
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+
+void ABlasterCharacter::UpdateHUDShield()
+{
+	if (BlasterPlayerController)
+	{
+		BlasterPlayerController->SetHUDShield(Shield, MaxShield);
 	}
 }
 
@@ -902,6 +930,16 @@ void ABlasterCharacter::OnRep_Health(float LastHealth)
 	UpdateHUDHealth();
 
 	if (Health < LastHealth)
+	{
+		PlayHitReactMontage();
+	}
+}
+
+void ABlasterCharacter::OnRep_Shield(float LastShield)
+{
+	UpdateHUDShield();
+
+	if (Shield < LastShield)
 	{
 		PlayHitReactMontage();
 	}

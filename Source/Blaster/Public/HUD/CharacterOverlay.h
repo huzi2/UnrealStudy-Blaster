@@ -19,6 +19,8 @@ class BLASTER_API UCharacterOverlay : public UUserWidget
 public:
 	FORCEINLINE UProgressBar* GetHealthBar() const { return HealthBar; }
 	FORCEINLINE UTextBlock* GetHealthText() const { return HealthText; }
+	FORCEINLINE UProgressBar* GetShieldBar() const { return ShieldBar; }
+	FORCEINLINE UTextBlock* GetShieldText() const { return ShieldText; }
 	FORCEINLINE UTextBlock* GetScoreAmount() const { return ScoreAmount; }
 	FORCEINLINE UTextBlock* GetDefeatsAmount() const { return DefeatsAmount; }
 	FORCEINLINE UTextBlock* GetWeaponAmmoAmount() const { return WeaponAmmoAmount; }
@@ -32,6 +34,12 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> HealthText;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UProgressBar> ShieldBar;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> ShieldText;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ScoreAmount;

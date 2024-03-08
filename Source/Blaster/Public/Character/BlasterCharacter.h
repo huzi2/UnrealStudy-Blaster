@@ -66,6 +66,9 @@ public:
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE void SetHealth(float Amount) { Health = Amount; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	FORCEINLINE float GetShield() const { return Shield; }
+	FORCEINLINE void SetShield(float Amount) { Shield = Amount; }
+	FORCEINLINE float GetMaxShield() const { return MaxShield; }
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
@@ -88,6 +91,7 @@ public:
 	void PlayThrowGrenadeMontage();
 	void Elim();
 	void UpdateHUDHealth();
+	void UpdateHUDShield();
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -162,6 +166,15 @@ private:
 
 	UFUNCTION()
 	void OnRep_Health(float LastHealth);
+
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	float MaxShield;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Shield, EditAnywhere, Category = "Player Stats")
+	float Shield;
+
+	UFUNCTION()
+	void OnRep_Shield(float LastShield);
 
 	UPROPERTY(EditDefaultsOnly, Category = "Elim")
 	float ElimDelay;

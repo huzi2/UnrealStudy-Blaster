@@ -8,13 +8,11 @@ UBuffComponent::UBuffComponent()
 	: bHealing(false)
 	, HealingRate(0.f)
 	, AmountToHeal(0.f)
+	, bShieldReplenish(false)
+	, ShieldReplenishRate(0.f)
+	, AmountToShieldReplenish(0.f)
 {
 	PrimaryComponentTick.bCanEverTick = true;
-}
-
-void UBuffComponent::BeginPlay()
-{
-	Super::BeginPlay();	
 }
 
 void UBuffComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -22,6 +20,7 @@ void UBuffComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	HealRampUp(DeltaTime);
+	ShieldReplenishRampUp(DeltaTime);
 }
 
 void UBuffComponent::MulticastSpeedBuff_Implementation(float BaseSpeedBuff, float CrouchSpeedBuff)
@@ -49,6 +48,16 @@ void UBuffComponent::Heal(float HealAmount, float HealingTime)
 
 	HealingRate = HealAmount / HealingTime;
 	AmountToHeal += HealAmount;
+}
+
+void UBuffComponent::ReplenishShield(float ShieldReplenishAmount, float ShieldReplenishTime)
+{
+	bShieldReplenish = true;
+
+	if (ShieldReplenishTime == 0.f) ShieldReplenishTime = 1.f;
+
+	ShieldReplenishRate = ShieldReplenishAmount / ShieldReplenishTime;
+	AmountToShieldReplenish += ShieldReplenishAmount;
 }
 
 void UBuffComponent::BuffSpped(float BaseSpeedBuff, float CrouchSpeedBuff, float SpeedBuffTime)
@@ -105,6 +114,25 @@ void UBuffComponent::HealRampUp(float DeltaTime)
 	{
 		bHealing = false;
 		AmountToHeal = 0.f;
+	}
+}
+
+void UBuffComponent::ShieldReplenishRampUp(float DeltaTime)
+{
+	if (!bShieldReplenish) return;
+	if (!Character) return;
+	if (Character->IsElimmed()) return;
+
+	const float ShieldReplenishThisFrame = ShieldReplenishRate * DeltaTime;
+	Character->SetShield(FMath::Clamp(Character->GetShield() + ShieldReplenishThisFrame, 0.f, Character->GetMaxShield()));
+	Character->UpdateHUDShield();
+
+	AmountToShieldReplenish -= ShieldReplenishThisFrame;
+
+	if (AmountToShieldReplenish <= 0.f || Character->GetShield() >= Character->GetMaxShield())
+	{
+		bShieldReplenish = false;
+		AmountToShieldReplenish = 0.f;
 	}
 }
 
