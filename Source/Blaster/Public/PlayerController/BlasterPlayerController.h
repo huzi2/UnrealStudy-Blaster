@@ -102,4 +102,6 @@ private:
 	float HUDScore;
 	int32 HUDDefeats;
 	int32 HUDGrenades;
+	int32 HUDWeaponAmmo;
+	int32 HUDCarriedAmmo;
 };

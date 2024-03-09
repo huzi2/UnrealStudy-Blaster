@@ -1,0 +1,18 @@
+diff a/Source/Blaster/Public/Character/BlasterCharacter.h b/Source/Blaster/Public/Character/BlasterCharacter.h	(rejected hunks)
+@@ -206,13 +206,13 @@
+ 	UPROPERTY(EditAnywhere, Category = "Elim")
+ 	TObjectPtr<USoundCue> ElimBotSound;
+ 
+-	UPROPERTY(VisibleAnywhere, Category = "Grenade")
+-	TObjectPtr<UStaticMeshComponent> AttachedGrenade;
+-
+ 	// ��ٿ� ������ �� Ư�� �Է��� ���� ����
+ 	UPROPERTY(Replicated)
+ 	bool bDisableGameplay;
+ 
++	UPROPERTY(VisibleAnywhere, Category = "Grenade")
++	TObjectPtr<UStaticMeshComponent> AttachedGrenade;
++
+ 	UPROPERTY(EditAnywhere, Category = "Input")
+ 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
+ 

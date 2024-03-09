@@ -10,6 +10,7 @@
 
 APickup::APickup()
 	: BaseTurnRate(45.f)
+	, BindOverlapTime(0.25f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -40,9 +41,11 @@ void APickup::BeginPlay()
 	Super::BeginPlay();
 
 	// 충돌 체크는 서버만
-	if (HasAuthority() && OverlapShpere)
+	if (HasAuthority())
 	{
-		OverlapShpere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereOverlap);
+		// 아주 약간의 시간을 주고 함수를 바인드
+		// 이렇게하는 이유는 바로 충돌처리를 바인드하면 픽업이 생성되지마자 충돌처리되면서 삭제되어서 APickupSpawnPoint에서 픽업 객체에 바인드할 시간이 없다.
+		GetWorldTimerManager().SetTimer(BindOverlapTimer, this, &ThisClass::BindOverlapTimerFinished, BindOverlapTime);
 	}
 }
 
@@ -73,4 +76,12 @@ void APickup::Destroyed()
 
 void APickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+}
+
+void APickup::BindOverlapTimerFinished()
+{
+	if (OverlapShpere)
+	{
+		OverlapShpere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereOverlap);
+	}
 }

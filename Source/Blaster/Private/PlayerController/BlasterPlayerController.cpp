@@ -228,8 +228,12 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 {
 	HUDInit();
 
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
+	{
+		bInitializeCharacterOverlay = true;
+		HUDWeaponAmmo = Ammo;
+		return;
+	}
 	if (!BlasterHUD->GetCharacterOverlay()->GetWeaponAmmoAmount()) return;
 
 	const FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
@@ -240,8 +244,12 @@ void ABlasterPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 {
 	HUDInit();
 
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
+	{
+		bInitializeCharacterOverlay = true;
+		HUDCarriedAmmo = Ammo;
+		return;
+	}
 	if (!BlasterHUD->GetCharacterOverlay()->GetCarriedAmmoAmount()) return;
 
 	const FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
@@ -405,6 +413,8 @@ void ABlasterPlayerController::PollInit()
 			SetHUDShield(HUDShield, HUDMaxShield);
 			SetHUDScore(HUDScore);
 			SetHUDDefeats(HUDDefeats);
+			SetHUDWeaponAmmo(HUDWeaponAmmo);
+			SetHUDCarriedAmmo(HUDCarriedAmmo);
 
 			if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn()))
 			{

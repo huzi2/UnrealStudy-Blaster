@@ -62,6 +62,8 @@ public:
 	FORCEINLINE int32 GetAmmo() const { return Ammo; }
 	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
 	FORCEINLINE USoundCue* GetEquipSound() const { return EquipSound; }
+	FORCEINLINE bool GetDestroyWeapon() const { return bDestroyWeapon; }
+	FORCEINLINE void SetDestroyWeapon(bool bDestroy) { bDestroyWeapon = bDestroy; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 	void Dropped();
@@ -144,4 +146,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ABlasterPlayerController> BlasterOwnerController;
+
+private:
+	bool bDestroyWeapon;
 };

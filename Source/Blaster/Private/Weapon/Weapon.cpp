@@ -15,6 +15,7 @@ AWeapon::AWeapon()
 	, ZoomInterpSpeed(20.f)
 	, bAutomatic(true)
 	, FireDelay(0.15f)
+	, bDestroyWeapon(false)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	// 리플리케이션을 켜서 서버의 내용을 클라가 모두 복제하도록함
@@ -83,8 +84,14 @@ void AWeapon::OnRep_Owner()
 	}
 	else
 	{
-		// 이 무기에 저장된 탄약 수를 오너에게 알림
-		SetHUDAmmo();
+		CheckInit();
+
+		// 보조 무기를 들 때는 HUD 업데이트를 하면 안됨
+		if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetEquippedWeapon() && BlasterOwnerCharacter->GetEquippedWeapon() == this)
+		{
+			// 이 무기에 저장된 탄약 수를 오너에게 알림
+			SetHUDAmmo();
+		}
 	}
 }
 
@@ -163,9 +170,6 @@ void AWeapon::SetWeaponState(EWeaponState State)
 				WeaponMesh->SetEnableGravity(false);
 			}
 		}
-
-		// 무기 외곽 강조 효과 끔
-		EnableCustomDepth(false);
 		break;
 	case EWeaponState::EWS_Dropped:
 		// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
@@ -301,8 +305,6 @@ void AWeapon::OnRep_WeaponState()
 				WeaponMesh->SetEnableGravity(false);
 			}
 		}
-
-		EnableCustomDepth(false);
 		break;
 	case EWeaponState::EWS_Dropped:
 		if (WeaponMesh)

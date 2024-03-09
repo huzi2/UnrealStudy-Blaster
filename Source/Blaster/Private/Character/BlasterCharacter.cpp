@@ -90,6 +90,9 @@ void ABlasterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	SpawnDefaultWeapon();
+	UpdateHUDAmmo();
+
 	// 게임 시작할 때 체력 초기화
 	// 하지만 게임 중에 캐릭터가 제거되고 재생성될 때는 컨트롤러가 연결되지 않은 상태에서 생성되서 이부분이 호출안될 수도 있다.
 	// 그래서 게임 중 재생성에 대해서는 컨트롤러의 OnPossess()에서 처리한다.
@@ -503,7 +506,14 @@ void ABlasterCharacter::Elim()
 	// 무기를 떨어뜨리는 처리
 	if (Combat && Combat->EquippedWeapon)
 	{
-		Combat->EquippedWeapon->Dropped();
+		if (Combat->EquippedWeapon->GetDestroyWeapon())
+		{
+			Combat->EquippedWeapon->Destroy();
+		}
+		else
+		{
+			Combat->EquippedWeapon->Dropped();
+		}
 	}
 
 	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
@@ -528,6 +538,23 @@ void ABlasterCharacter::UpdateHUDShield()
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDShield(Shield, MaxShield);
+	}
+}
+
+void ABlasterCharacter::SpawnDefaultWeapon()
+{
+	if (!GetWorld()) return;
+	if (!DefaultWeaponClass) return;
+	if (!Combat) return;
+	if (bElimmed) return;
+
+	if (ABlasterGameMode* BlasterGameMode = Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this)))
+	{
+		if (AWeapon* StartingWeapon = GetWorld()->SpawnActor<AWeapon>(DefaultWeaponClass))
+		{
+			StartingWeapon->SetDestroyWeapon(true);
+			Combat->EquipWeapon(StartingWeapon);
+		}
 	}
 }
 
@@ -581,16 +608,8 @@ void ABlasterCharacter::EquipButtonPressed()
 
 	if (Combat)
 	{
-		// 서버면 바로 무기 장착
-		if (HasAuthority())
-		{
-			Combat->EquipWeapon(OverlappingWeapon);
-		}
-		// 클라면 서버에게 요청
-		else
-		{
-			ServerEquipButtonPressed();
-		}
+		// 서버에게 무기장착 요구. 서버면 바로 장착하고, 클라면 서버를 통해서 장착
+		ServerEquipButtonPressed();
 	}
 }
 
@@ -910,6 +929,16 @@ void ABlasterCharacter::RotateInPlace(float DeltaTime)
 			OnRep_ReplicatedMovement();
 		}
 		CalculateAO_Pitch();
+	}
+}
+
+void ABlasterCharacter::UpdateHUDAmmo()
+{
+	InitPlayerController();
+	if (BlasterPlayerController && Combat && Combat->EquippedWeapon)
+	{
+		BlasterPlayerController->SetHUDWeaponAmmo(Combat->EquippedWeapon->GetAmmo());
+		BlasterPlayerController->SetHUDCarriedAmmo(Combat->CarriedAmmo);
 	}
 }
 

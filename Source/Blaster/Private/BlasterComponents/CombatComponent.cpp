@@ -87,6 +87,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	// EquippedWeapon은 캐릭터가 RPC로 서버에서만 호출하기에 각각의 클라에서는 nullptr이다
 	// 근데 애님인스턴스에서 해당 변수로 무기가 장착되었는지 확인하기에 각 클라에 레플리케이트해야한다.
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
+	DOREPLIFETIME(UCombatComponent, SecondaryWeapon);
 
 	// 조준 자세를 다른 클라도 확인해야해서 레플리케이트
 	DOREPLIFETIME(UCombatComponent, bAiming);
@@ -234,34 +235,22 @@ void UCombatComponent::LaunchGrenade()
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
-	if (!Character || !WeaponToEquip) return;
+	if (!WeaponToEquip) return;
+	if (!Character) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
 	bCanFire = true;
-	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
-	DropEquippedWedapon();
 
-	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
-	// 하지만 아래 내용이 적용되고 복사될 지, 복사 먼저되서 내용 적용이 안될지는 레플리케이션 타이밍에 따라 다름
-	// 그래서 아래 내용은 OnRep에서 한번 더 수행한다.
-	EquippedWeapon = WeaponToEquip;
-	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-
-	// 무기를 오른손에 붙임
-	AttachActorToRightHand(EquippedWeapon);
-
-	// Owner은 서버에서 세팅하고 클라에 레플리케이션되는 변수
-	EquippedWeapon->SetOwner(Character);
-	// 서버에 탄약 적용
-	EquippedWeapon->SetHUDAmmo();
-
-	// 무기 타입에 따라 가지고 있는 탄약 표시
-	UpdateCarriedAmmo();
-
-	PlayEquipWeaponSound();
-
-	// 무기 장착 후 탄약이 없으면 자동 재장전
-	ReloadEmptyWeapon();
+	// 메인 무기가 있고 세컨 무기가 없으면 먹은 무기를 배낭에 장착
+	if (EquippedWeapon && !SecondaryWeapon)
+	{
+		EquipSecondaryWeapon(WeaponToEquip);
+	}
+	// 메인 무기가 없으면 장착. 두 무기가 다 있으면 들고있는 무기를 떨어뜨리고 새 무기로 장착
+	else
+	{
+		EquipPrimaryWeapon(WeaponToEquip);
+	}
 
 	// 무기를 낀 후에는 정면을 조준하면서 이동하도록 함
 	if (Character->GetCharacterMovement())
@@ -695,6 +684,19 @@ void UCombatComponent::AttachActorToLeftHand(AActor* ActorToAttach)
 	}
 }
 
+void UCombatComponent::AttachActorToBackpack(AActor* ActorToAttach)
+{
+	if (!ActorToAttach) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	const USkeletalMeshSocket* BackpackSocket = Character->GetMesh()->GetSocketByName(TEXT("BackpackSocket"));
+	if (BackpackSocket)
+	{
+		BackpackSocket->AttachActor(ActorToAttach, Character->GetMesh());
+	}
+}
+
 void UCombatComponent::UpdateCarriedAmmo()
 {
 	if (!EquippedWeapon) return;
@@ -711,14 +713,14 @@ void UCombatComponent::UpdateCarriedAmmo()
 	}
 }
 
-void UCombatComponent::PlayEquipWeaponSound()
+void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
 {
-	if (!EquippedWeapon) return;
+	if (!WeaponToEquip) return;
 	if (!Character) return;
 
-	if (EquippedWeapon->GetEquipSound())
+	if (WeaponToEquip->GetEquipSound())
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->GetEquipSound(), Character->GetActorLocation());
+		UGameplayStatics::PlaySoundAtLocation(this, WeaponToEquip->GetEquipSound(), Character->GetActorLocation());
 	}
 }
 
@@ -747,6 +749,60 @@ void UCombatComponent::UpdateHUDGrenades()
 	}
 }
 
+void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip)
+{
+	if (!WeaponToEquip) return;
+
+	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
+	DropEquippedWedapon();
+
+	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
+	// 하지만 아래 내용이 적용되고 복사될 지, 복사 먼저되서 내용 적용이 안될지는 레플리케이션 타이밍에 따라 다름
+	// 그래서 아래 내용은 OnRep에서 한번 더 수행한다.
+	EquippedWeapon = WeaponToEquip;
+	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+
+	// 무기를 오른손에 붙임
+	AttachActorToRightHand(EquippedWeapon);
+
+	// Owner은 서버에서 세팅하고 클라에 레플리케이션되는 변수
+	EquippedWeapon->SetOwner(Character);
+	// 서버에 탄약 적용
+	EquippedWeapon->SetHUDAmmo();
+
+	// 무기 타입에 따라 가지고 있는 탄약 표시
+	UpdateCarriedAmmo();
+
+	PlayEquipWeaponSound(EquippedWeapon);
+
+	// 무기 장착 후 탄약이 없으면 자동 재장전
+	ReloadEmptyWeapon();
+
+	// 무기 외곽선 제거
+	EquippedWeapon->EnableCustomDepth(false);
+}
+
+void UCombatComponent::EquipSecondaryWeapon(AWeapon* WeaponToEquip)
+{
+	if (!WeaponToEquip) return;
+
+	SecondaryWeapon = WeaponToEquip;
+	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+
+	// 무기를 백팩에 붙임
+	AttachActorToBackpack(WeaponToEquip);
+
+	SecondaryWeapon->SetOwner(Character);
+
+	PlayEquipWeaponSound(SecondaryWeapon);
+
+	if (SecondaryWeapon->GetWeaponMesh())
+	{
+		SecondaryWeapon->GetWeaponMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
+		SecondaryWeapon->GetWeaponMesh()->MarkRenderStateDirty();
+	}
+}
+
 void UCombatComponent::OnRep_EquippedWeapon()
 {
 	bCanFire = true;
@@ -758,12 +814,32 @@ void UCombatComponent::OnRep_EquippedWeapon()
 
 		AttachActorToRightHand(EquippedWeapon);
 
-		PlayEquipWeaponSound();
+		PlayEquipWeaponSound(EquippedWeapon);
+
+		EquippedWeapon->EnableCustomDepth(false);
 
 		if (Character->GetCharacterMovement())
 		{
 			Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 			Character->bUseControllerRotationYaw = true;
+		}
+	}
+}
+
+void UCombatComponent::OnRep_SecondaryWeapon()
+{
+	if (SecondaryWeapon && Character)
+	{
+		SecondaryWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+
+		AttachActorToBackpack(SecondaryWeapon);
+
+		PlayEquipWeaponSound(SecondaryWeapon);
+
+		if (SecondaryWeapon->GetWeaponMesh())
+		{
+			SecondaryWeapon->GetWeaponMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
+			SecondaryWeapon->GetWeaponMesh()->MarkRenderStateDirty();
 		}
 	}
 }

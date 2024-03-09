@@ -92,6 +92,7 @@ public:
 	void Elim();
 	void UpdateHUDHealth();
 	void UpdateHUDShield();
+	void SpawnDefaultWeapon();
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -118,6 +119,7 @@ private:
 	void StartDissolve();
 	void PollInit();
 	void RotateInPlace(float DeltaTime);
+	void UpdateHUDAmmo();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -158,6 +160,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TObjectPtr<UAnimMontage> ThrowGrenadeMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TSubclassOf<AWeapon> DefaultWeaponClass;
 
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	float MaxHealth;
@@ -201,12 +206,12 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Elim")
 	TObjectPtr<USoundCue> ElimBotSound;
 
-	UPROPERTY(VisibleAnywhere, Category = "Grenade")
-	TObjectPtr<UStaticMeshComponent> AttachedGrenade;
-
 	// 쿨다운 상태일 때 특정 입력을 막기 위함
 	UPROPERTY(Replicated)
 	bool bDisableGameplay;
+
+	UPROPERTY(VisibleAnywhere, Category = "Grenade")
+	TObjectPtr<UStaticMeshComponent> AttachedGrenade;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
