@@ -27,7 +27,7 @@ void ABlasterPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	BlasterHUD = Cast<ABlasterHUD>(GetHUD());
+	HUDInit();
 
 	if (HasAuthority())
 	{
@@ -146,8 +146,16 @@ void ABlasterPlayerController::ClientJoinMidGame_Implementation(const FName& Sta
 
 void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 {
+	HUDInit();
+
 	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
 	{
+		if (!GetHUD())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("HUD not"));
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("BlasterHUD not"));
 		bInitializeCharacterOverlay = true;
 		HUDHealth = Health;
 		HUDMaxHealth = MaxHealth;
@@ -165,6 +173,8 @@ void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 
 void ABlasterPlayerController::SetHUDShield(float Shield, float MaxShield)
 {
+	HUDInit();
+
 	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
 	{
 		bInitializeCharacterOverlay = true;
@@ -184,6 +194,8 @@ void ABlasterPlayerController::SetHUDShield(float Shield, float MaxShield)
 
 void ABlasterPlayerController::SetHUDScore(float Score)
 {
+	HUDInit();
+
 	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
 	{
 		bInitializeCharacterOverlay = true;
@@ -198,6 +210,8 @@ void ABlasterPlayerController::SetHUDScore(float Score)
 
 void ABlasterPlayerController::SetHUDDefeats(int32 Defeats)
 {
+	HUDInit();
+
 	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
 	{
 		bInitializeCharacterOverlay = true;
@@ -212,6 +226,8 @@ void ABlasterPlayerController::SetHUDDefeats(int32 Defeats)
 
 void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 {
+	HUDInit();
+
 	if (!BlasterHUD) return;
 	if (!BlasterHUD->GetCharacterOverlay()) return;
 	if (!BlasterHUD->GetCharacterOverlay()->GetWeaponAmmoAmount()) return;
@@ -222,6 +238,8 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 
 void ABlasterPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 {
+	HUDInit();
+
 	if (!BlasterHUD) return;
 	if (!BlasterHUD->GetCharacterOverlay()) return;
 	if (!BlasterHUD->GetCharacterOverlay()->GetCarriedAmmoAmount()) return;
@@ -232,6 +250,8 @@ void ABlasterPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 
 void ABlasterPlayerController::SetHUDMatchCountdown(float CounddownTime)
 {
+	HUDInit();
+
 	if (!BlasterHUD) return;
 	if (!BlasterHUD->GetCharacterOverlay()) return;
 	if (!BlasterHUD->GetCharacterOverlay()->GetMatchCountdownText()) return;
@@ -251,6 +271,8 @@ void ABlasterPlayerController::SetHUDMatchCountdown(float CounddownTime)
 
 void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CounddownTime)
 {
+	HUDInit();
+
 	if (!BlasterHUD) return;
 	if (!BlasterHUD->GetAnnouncement()) return;
 	if (!BlasterHUD->GetAnnouncement()->GetWarmupTime()) return;
@@ -270,6 +292,8 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CounddownTime)
 
 void ABlasterPlayerController::SetHUDGrenades(int32 Grenades)
 {
+	HUDInit();
+
 	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
 	{
 		bInitializeCharacterOverlay = true;
@@ -305,6 +329,14 @@ void ABlasterPlayerController::OnMatchStateSet(const FName& State)
 	else if (MatchState == MatchState::Cooldown)
 	{
 		HandleCooldown();
+	}
+}
+
+void ABlasterPlayerController::HUDInit()
+{
+	if (!BlasterHUD)
+	{
+		BlasterHUD = Cast<ABlasterHUD>(GetHUD());
 	}
 }
 
@@ -365,9 +397,9 @@ void ABlasterPlayerController::CheckTimeSync(float DeltaTime)
 void ABlasterPlayerController::PollInit()
 {
 	// 컨트롤러가 오버레이보다 먼저 생성됬을 때 나중에 초기화하기위함
-	if (!CharacterOverlay && BlasterHUD)
+	if (BlasterHUD)
 	{
-		if ((CharacterOverlay = BlasterHUD->GetCharacterOverlay()) && bInitializeCharacterOverlay)
+		if (bInitializeCharacterOverlay)
 		{
 			SetHUDHealth(HUDHealth, HUDMaxHealth);
 			SetHUDShield(HUDShield, HUDMaxShield);
@@ -389,6 +421,8 @@ void ABlasterPlayerController::PollInit()
 
 void ABlasterPlayerController::HandleMatchHasStarted()
 {
+	HUDInit();
+
 	if (BlasterHUD)
 	{
 		// 매치 시작 전 알림 오버레이 위젯은 숨기고(쿨다운 때 재활용)
@@ -407,6 +441,8 @@ void ABlasterPlayerController::HandleMatchHasStarted()
 
 void ABlasterPlayerController::HandleCooldown()
 {
+	HUDInit();
+
 	if (BlasterHUD)
 	{
 		// 오버레이 위젯은 매치 시작하면서 새로 만들기에 여기서는 아예 제거

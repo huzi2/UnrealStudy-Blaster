@@ -8,7 +8,6 @@
 
 class ABlasterGameMode;
 class ABlasterHUD;
-class UCharacterOverlay;
 /**
  * 
  */
@@ -59,6 +58,7 @@ public:
 	void OnMatchStateSet(const FName& State);
 
 private:
+	void HUDInit();
 	void SetHUDTime();
 	void CheckTimeSync(float DeltaTime);
 	void PollInit();
@@ -81,9 +81,6 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ABlasterHUD> BlasterHUD;
-
-	UPROPERTY()
-	TObjectPtr<UCharacterOverlay> CharacterOverlay;
 
 private:
 	float WarmupTime;

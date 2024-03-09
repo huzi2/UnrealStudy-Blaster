@@ -107,6 +107,7 @@ private:
 	void ReloadButtonPressed();
 	void ThrowGrenadeButtonPressed();
 
+	void InitPlayerController();
 	void AimOffset(float DeltaTime);
 	void SimProxiesTurn();
 	void TurnInPlace(float DeltaTime);

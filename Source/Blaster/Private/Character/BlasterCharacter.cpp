@@ -90,16 +90,6 @@ void ABlasterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(DefaultInputMappingContext, 0);
-		}
-	}
-
-	BlasterPlayerController = Cast<ABlasterPlayerController>(Controller);
-
 	// 게임 시작할 때 체력 초기화
 	// 하지만 게임 중에 캐릭터가 제거되고 재생성될 때는 컨트롤러가 연결되지 않은 상태에서 생성되서 이부분이 호출안될 수도 있다.
 	// 그래서 게임 중 재생성에 대해서는 컨트롤러의 OnPossess()에서 처리한다.
@@ -247,6 +237,7 @@ void ABlasterCharacter::MulticastElim_Implementation()
 	PlayElimMontage();
 
 	// 탄약 초기화
+	InitPlayerController();
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDWeaponAmmo(0);
@@ -351,11 +342,7 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 			if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
 			{
 				ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
-				if (!BlasterPlayerController)
-				{
-					BlasterPlayerController = Cast<ABlasterPlayerController>(Controller);
-				}
-
+				InitPlayerController();
 				BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
 			}
 		}
@@ -528,6 +515,7 @@ void ABlasterCharacter::Elim()
 
 void ABlasterCharacter::UpdateHUDHealth()
 {
+	InitPlayerController();
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDHealth(Health, MaxHealth);
@@ -536,6 +524,7 @@ void ABlasterCharacter::UpdateHUDHealth()
 
 void ABlasterCharacter::UpdateHUDShield()
 {
+	InitPlayerController();
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDShield(Shield, MaxShield);
@@ -676,6 +665,20 @@ void ABlasterCharacter::ThrowGrenadeButtonPressed()
 	if (Combat)
 	{
 		Combat->ThrowGrenade();
+	}
+}
+
+void ABlasterCharacter::InitPlayerController()
+{
+	if (!BlasterPlayerController)
+	{
+		if (BlasterPlayerController = Cast<ABlasterPlayerController>(Controller))
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(BlasterPlayerController->GetLocalPlayer()))
+			{
+				Subsystem->AddMappingContext(DefaultInputMappingContext, 0);
+			}
+		}
 	}
 }
 
@@ -880,6 +883,8 @@ void ABlasterCharacter::PollInit()
 			BlasterPlayerState->AddToDefeats(0);
 		}
 	}
+
+	InitPlayerController();
 }
 
 void ABlasterCharacter::RotateInPlace(float DeltaTime)
