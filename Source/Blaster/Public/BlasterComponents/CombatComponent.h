@@ -64,12 +64,14 @@ public:
 	FORCEINLINE int32 GetGrenades() const { return Grenades; }
 
 	void EquipWeapon(AWeapon* WeaponToEquip);
+	void SwapWeapons();
 	void SetAiming(bool bIsAiming);
 	void Reload();
 	void FireButtonPressed(bool bPressed);
 	void JumpToShotgunEnd();
 	void ThrowGrenade();
 	void PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount);
+	bool ShouldSwapWeapons() const;
 
 private:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);

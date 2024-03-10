@@ -181,7 +181,7 @@ void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		Input->BindAction(MoveRightInputAction, ETriggerEvent::Triggered, this, &ThisClass::MoveRight);
 		Input->BindAction(TurnInputAction, ETriggerEvent::Triggered, this, &ThisClass::Turn);
 		Input->BindAction(LookUpInputAction, ETriggerEvent::Triggered, this, &ThisClass::LookUp);
-		Input->BindAction(EquipInputAction, ETriggerEvent::Triggered, this, &ThisClass::EquipButtonPressed);
+		Input->BindAction(EquipInputAction, ETriggerEvent::Started, this, &ThisClass::EquipButtonPressed);
 		Input->BindAction(CrouchInputAction, ETriggerEvent::Started, this, &ThisClass::CrouchButtonPressed);
 		Input->BindAction(AimInputAction, ETriggerEvent::Started, this, &ThisClass::AimButtonPressed);
 		Input->BindAction(AimInputAction, ETriggerEvent::Completed, this, &ThisClass::AimButtonReleased);
@@ -305,7 +305,16 @@ void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 {
 	if (Combat)
 	{
-		Combat->EquipWeapon(OverlappingWeapon);
+		// 무기와 겹친 상태면 그 무기 장착
+		if (OverlappingWeapon)
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		// 아닌 상태면 보조 무기와 스왑
+		else if (Combat->ShouldSwapWeapons())
+		{
+			Combat->SwapWeapons();
+		}
 	}
 }
 
@@ -504,17 +513,7 @@ void ABlasterCharacter::Elim()
 {
 	// 캐릭터가 죽는 처리는 서버에서 행한다.
 	// 무기를 떨어뜨리는 처리
-	if (Combat && Combat->EquippedWeapon)
-	{
-		if (Combat->EquippedWeapon->GetDestroyWeapon())
-		{
-			Combat->EquippedWeapon->Destroy();
-		}
-		else
-		{
-			Combat->EquippedWeapon->Dropped();
-		}
-	}
+	DropOrDestroyWeapons();
 
 	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
 	MulticastElim();
@@ -939,6 +938,29 @@ void ABlasterCharacter::UpdateHUDAmmo()
 	{
 		BlasterPlayerController->SetHUDWeaponAmmo(Combat->EquippedWeapon->GetAmmo());
 		BlasterPlayerController->SetHUDCarriedAmmo(Combat->CarriedAmmo);
+	}
+}
+
+void ABlasterCharacter::DropOrDestroyWeapon(AWeapon* Weapon)
+{
+	if (!Weapon) return;
+
+	if (Weapon->GetDestroyWeapon())
+	{
+		Weapon->Destroy();
+	}
+	else
+	{
+		Weapon->Dropped();
+	}
+}
+
+void ABlasterCharacter::DropOrDestroyWeapons()
+{
+	if (Combat)
+	{
+		DropOrDestroyWeapon(Combat->EquippedWeapon);
+		DropOrDestroyWeapon(Combat->SecondaryWeapon);
 	}
 }
 

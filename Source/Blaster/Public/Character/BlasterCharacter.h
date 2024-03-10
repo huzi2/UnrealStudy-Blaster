@@ -120,6 +120,8 @@ private:
 	void PollInit();
 	void RotateInPlace(float DeltaTime);
 	void UpdateHUDAmmo();
+	void DropOrDestroyWeapon(AWeapon* Weapon);
+	void DropOrDestroyWeapons();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")

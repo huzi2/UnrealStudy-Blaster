@@ -141,63 +141,7 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 void AWeapon::SetWeaponState(EWeaponState State)
 {
 	WeaponState = State;
-
-	switch (WeaponState)
-	{
-	case EWeaponState::EWS_Equipped:
-		ShowPickupWidget(false);
-
-		if (AreaSphere)
-		{
-			AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		}
-
-		if (WeaponMesh)
-		{
-			WeaponMesh->SetSimulatePhysics(false);
-
-			// SMG에는 피직스 에셋으로 줄 흔들림을 구현해서 충돌처리와 중력 사용
-			if (WeaponType == EWeaponType::EWT_SubmachineGun)
-			{
-				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-				WeaponMesh->SetEnableGravity(true);
-				// 그렇다고 다른 물체와 충돌하면 안되니까 무시
-				WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-			}
-			else
-			{
-				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				WeaponMesh->SetEnableGravity(false);
-			}
-		}
-		break;
-	case EWeaponState::EWS_Dropped:
-		// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
-		if (HasAuthority() && AreaSphere)
-		{
-			AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-		}
-
-		if (WeaponMesh)
-		{
-			WeaponMesh->SetSimulatePhysics(true);
-			WeaponMesh->SetEnableGravity(true);
-			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-			// 드롭할떄는 땅과 다시 충돌해야하므로 블록으로 설정(SMG의 경우)
-			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
-			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
-			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
-		}
-
-		// 무기 외곽 강조 효과 킴
-		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
-		WeaponMesh->MarkRenderStateDirty();
-		EnableCustomDepth(true);
-		break;
-	default:
-		break;
-	}
+	OnWeaponStateSet();
 }
 
 void AWeapon::ShowPickupWidget(bool bShowWidget)
@@ -282,48 +226,120 @@ void AWeapon::CheckInit()
 	}
 }
 
-void AWeapon::OnRep_WeaponState()
+void AWeapon::OnWeaponStateSet()
 {
 	switch (WeaponState)
 	{
 	case EWeaponState::EWS_Equipped:
-		ShowPickupWidget(false);
-
-		if (WeaponMesh)
-		{
-			WeaponMesh->SetSimulatePhysics(false);
-
-			if (WeaponType == EWeaponType::EWT_SubmachineGun)
-			{
-				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-				WeaponMesh->SetEnableGravity(true);
-				WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-			}
-			else
-			{
-				WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				WeaponMesh->SetEnableGravity(false);
-			}
-		}
+		OnEquipped();
+		break;
+	case EWeaponState::EWS_EquippedSecondary:
+		OnEquippedSecondary();
 		break;
 	case EWeaponState::EWS_Dropped:
-		if (WeaponMesh)
-		{
-			WeaponMesh->SetSimulatePhysics(true);
-			WeaponMesh->SetEnableGravity(true);
-			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
-			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
-			WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
-		}
-
-		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
-		WeaponMesh->MarkRenderStateDirty();
-		EnableCustomDepth(true);
+		OnDropped();
 		break;
 	default:
 		break;
 	}
+}
+
+void AWeapon::OnEquipped()
+{
+	ShowPickupWidget(false);
+
+	// 충돌 처리는 서버에서만 하므로 충돌 끄는건 서버에서만 하면됨
+	if (HasAuthority() && AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetSimulatePhysics(false);
+
+		// SMG에는 피직스 에셋으로 줄 흔들림을 구현해서 충돌처리와 중력 사용
+		if (WeaponType == EWeaponType::EWT_SubmachineGun)
+		{
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			WeaponMesh->SetEnableGravity(true);
+			// 그렇다고 다른 물체와 충돌하면 안되니까 무시
+			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		}
+		else
+		{
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			WeaponMesh->SetEnableGravity(false);
+		}
+
+		// 무기 외곽선 제거
+		EnableCustomDepth(false);
+	}
+}
+
+void AWeapon::OnEquippedSecondary()
+{
+	ShowPickupWidget(false);
+
+	// 충돌 처리는 서버에서만 하므로 충돌 끄는건 서버에서만 하면됨
+	if (HasAuthority() && AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetSimulatePhysics(false);
+
+		// SMG에는 피직스 에셋으로 줄 흔들림을 구현해서 충돌처리와 중력 사용
+		if (WeaponType == EWeaponType::EWT_SubmachineGun)
+		{
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			WeaponMesh->SetEnableGravity(true);
+			// 그렇다고 다른 물체와 충돌하면 안되니까 무시
+			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		}
+		else
+		{
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			WeaponMesh->SetEnableGravity(false);
+		}
+
+		EnableCustomDepth(true);
+		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
+		WeaponMesh->MarkRenderStateDirty();
+	}
+}
+
+void AWeapon::OnDropped()
+{
+	// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
+	if (HasAuthority() && AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetSimulatePhysics(true);
+		WeaponMesh->SetEnableGravity(true);
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+		// 드롭할떄는 땅과 다시 충돌해야하므로 블록으로 설정(SMG의 경우)
+		WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+		WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+		WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	}
+
+	// 무기 외곽 강조 효과 킴
+	WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
+	WeaponMesh->MarkRenderStateDirty();
+	EnableCustomDepth(true);
+}
+
+void AWeapon::OnRep_WeaponState()
+{
+	OnWeaponStateSet();
 }
 
 void AWeapon::OnRep_Ammo()
