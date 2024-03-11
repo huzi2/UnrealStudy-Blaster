@@ -23,9 +23,6 @@ private:
 protected:
 	void WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit);
 
-private:
-	FVector TraceEndWithScatter(const FVector& TraceStart, const FVector& HitTarget) const;
-
 protected:
 	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	float Damage;
@@ -45,13 +42,4 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	TObjectPtr<USoundCue> FireSound;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	float DistanceToSphere;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	float SphereRadius;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	bool bUseScatter;
 };

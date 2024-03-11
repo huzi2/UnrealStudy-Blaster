@@ -8,6 +8,7 @@
 
 class UProgressBar;
 class UTextBlock;
+class UImage;
 /**
  * 
  */
@@ -27,6 +28,8 @@ public:
 	FORCEINLINE UTextBlock* GetCarriedAmmoAmount() const { return CarriedAmmoAmount; }
 	FORCEINLINE UTextBlock* GetMatchCountdownText() const { return MatchCountdownText; }
 	FORCEINLINE UTextBlock* GetGrenadeText() const { return GrenadeText; }
+	FORCEINLINE UImage* GetHighPingImage() const { return HighPingImage; }
+	FORCEINLINE UWidgetAnimation* GetHighPingAnimation() const { return HighPingAnimation; }
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -58,4 +61,10 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> GrenadeText;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> HighPingImage;
+
+	UPROPERTY(meta = (BindWidgetAnim), Transient)
+	TObjectPtr<UWidgetAnimation> HighPingAnimation;
 };

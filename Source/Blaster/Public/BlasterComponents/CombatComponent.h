@@ -78,6 +78,10 @@ private:
 	void SetHUDCrosshairs(float DeltaTime);
 	void InterpFOV(float DeltaTime);
 	void Fire();
+	void FireProjectileWeapon();
+	void FireHitScanWeapon();
+	void FireShotgun();
+	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
 	void StartFireTimer();
 	void FireTimerFinished();
 	bool CanFire() const;

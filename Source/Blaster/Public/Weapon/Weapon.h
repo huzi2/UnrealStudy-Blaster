@@ -18,6 +18,16 @@ enum class EWeaponState : uint8
 	EWS_MAX					UMETA(DisplayName = "DefaultMAX")
 };
 
+UENUM(BlueprintType)
+enum class EFireType : uint8
+{
+	EFT_HitScan		UMETA(DisplayName = "Hit Scan Weapon"),
+	EFT_Projectile	UMETA(DisplayName = "Projectile Weapon"),
+	EFT_Shotgun		UMETA(DisplayName = "Shotgun Weapon"),
+
+	EFT_MAX			UMETA(DisplayName = "DefaultMAX")
+};
+
 class USphereComponent;
 class UWidgetComponent;
 class ACasing;
@@ -52,6 +62,7 @@ public:
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
 	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
+	FORCEINLINE EFireType GetFireType() const { return FireType; }
 	FORCEINLINE UTexture2D* GetCrosshairsCenter() const { return CrosshairsCenter; }
 	FORCEINLINE UTexture2D* GetCrosshairsLeft() const { return CrosshairsLeft; }
 	FORCEINLINE UTexture2D* GetCrosshairsRight() const { return CrosshairsRight; }
@@ -66,6 +77,7 @@ public:
 	FORCEINLINE USoundCue* GetEquipSound() const { return EquipSound; }
 	FORCEINLINE bool GetDestroyWeapon() const { return bDestroyWeapon; }
 	FORCEINLINE void SetDestroyWeapon(bool bDestroy) { bDestroyWeapon = bDestroy; }
+	FORCEINLINE bool GetUseScatter() const { return bUseScatter; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 	void Dropped();
@@ -74,6 +86,7 @@ public:
 	bool IsFull() const;
 	void AddAmmo(int32 AmmoToAdd);
 	void EnableCustomDepth(bool bEnable);
+	FVector TraceEndWithScatter(const FVector& HitTarget) const;
 
 private:
 	void SpendRound();
@@ -107,6 +120,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	EWeaponType WeaponType;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	EFireType FireType;
 
 	UPROPERTY(EditAnywhere, Category = "Crosshairs")
 	TObjectPtr<UTexture2D> CrosshairsCenter;
@@ -146,6 +162,15 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Sound")
 	TObjectPtr<USoundCue> EquipSound;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float DistanceToSphere;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float SphereRadius;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	bool bUseScatter;
 
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> BlasterOwnerCharacter;

@@ -64,10 +64,22 @@ private:
 	void PollInit();
 	void HandleMatchHasStarted();
 	void HandleCooldown();
+	void HighPingWarning();
+	void StopHighPingWarning();
+	void CheckPing(float DeltaTime);
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Time")
 	float TimeSyncFrequency;
+
+	UPROPERTY(EditAnywhere, Category = "Ping")
+	float HighPingDuration;
+
+	UPROPERTY(EditAnywhere, Category = "Ping")
+	float CheckPingFrequency;
+
+	UPROPERTY(EditAnywhere, Category = "Ping")
+	float HighPingThreshold;
 	
 	// 게임 모드의 현재 매치를 알기 위한 변수. 클라는 게임 모드를 확인할 수 없어서 레플리케이션해서 사용
 	UPROPERTY(ReplicatedUsing = OnRep_MatchState)
@@ -104,4 +116,7 @@ private:
 	int32 HUDGrenades;
 	int32 HUDWeaponAmmo;
 	int32 HUDCarriedAmmo;
+
+	float HighPingRunningTime;
+	float PingAnimationRunningTime;
 };

@@ -13,13 +13,19 @@
 #include "BlasterComponents/CombatComponent.h"
 #include "GameState/BlasterGameState.h"
 #include "PlayerState/BlasterPlayerState.h"
+#include "Components/Image.h"
 
 ABlasterPlayerController::ABlasterPlayerController()
 	: TimeSyncFrequency(5.f)
+	, HighPingDuration(5.f)
+	, CheckPingFrequency(20.f)
+	, HighPingThreshold(50.f)
 	, CounddownInt(0)
 	, ClientServerDelta(0.f)
 	, TimeSyncRunningTime(0.f)
 	, bInitializeCharacterOverlay(false)
+	, HighPingRunningTime(0.f)
+	, PingAnimationRunningTime(0.f)
 {
 }
 
@@ -64,6 +70,9 @@ void ABlasterPlayerController::Tick(float DeltaTime)
 
 	// 컨트롤러가 먼저 생성되서 오버레이가 초기화안됬을 때 초기화
 	PollInit();
+
+	// 주기적으로 높은 핑 체크
+	CheckPing(DeltaTime);
 }
 
 void ABlasterPlayerController::ReceivedPlayer()
@@ -521,6 +530,61 @@ void ABlasterPlayerController::HandleCooldown()
 		{
 			// 무기가 오토일 때 자동발사를 막음
 			BlasterCharacter->GetCombat()->FireButtonPressed(false);
+		}
+	}
+}
+
+void ABlasterPlayerController::HighPingWarning()
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingImage()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()) return;
+
+	BlasterHUD->GetCharacterOverlay()->GetHighPingImage()->SetOpacity(1.f);
+	BlasterHUD->GetCharacterOverlay()->PlayAnimation(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation(), 0.f, 5);
+}
+
+void ABlasterPlayerController::StopHighPingWarning()
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingImage()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()) return;
+
+	BlasterHUD->GetCharacterOverlay()->GetHighPingImage()->SetOpacity(0.f);
+	if (BlasterHUD->GetCharacterOverlay()->IsPlayingAnimation())
+	{
+		BlasterHUD->GetCharacterOverlay()->StopAnimation(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation());
+	}
+}
+
+void ABlasterPlayerController::CheckPing(float DeltaTime)
+{
+	// 일정 시간 주기로 핑이 높은지 체크
+	HighPingRunningTime += DeltaTime;
+	if (HighPingRunningTime > CheckPingFrequency)
+	{
+		if (!PlayerState) PlayerState = GetPlayerState<APlayerState>();
+		if (PlayerState)
+		{
+			// 핑이 높다면 UI 애니메이션을 통해 경고
+			if (PlayerState->GetPingInMilliseconds() > HighPingThreshold)
+			{
+				HighPingWarning();
+				PingAnimationRunningTime = 0.f;
+			}
+		}
+		HighPingRunningTime = 0.f;
+	}
+
+	// 높은 핑 경고 애니메이션은 일정 시간만 수행
+	if (BlasterHUD && BlasterHUD->GetCharacterOverlay() && BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation() && BlasterHUD->GetCharacterOverlay()->IsAnimationPlaying(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()))
+	{
+		PingAnimationRunningTime += DeltaTime;
+		if (PingAnimationRunningTime > HighPingDuration)
+		{
+			StopHighPingWarning();
 		}
 	}
 }

@@ -119,23 +119,10 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& Trac
 
 void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
 {
-	if (!Character) return;
-	if (!EquippedWeapon) return;
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
 
-	// 샷건은 장전 중에 쏠 수 있음
-	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
-	{
-		Character->PlayFireMontage(bAiming);
-		EquippedWeapon->Fire(TraceHitTarget);
-		CombatState = ECombatState::ECS_Unoccupied;
-		return;
-	}
-	if (CombatState != ECombatState::ECS_Unoccupied) return;
-
-	// 발사 모션과 발사 이펙트가 모든 클라이언트에서 보이도록 멀티캐스트
-	// 멀티캐스트로 서버, 클라 모두에서 발사 실행
-	Character->PlayFireMontage(bAiming);
-	EquippedWeapon->Fire(TraceHitTarget);
+	// 클라이언트가 조종하는 경우에 수행
+	LocalFire(TraceHitTarget);
 }
 
 void UCombatComponent::ServerReload_Implementation()
@@ -264,6 +251,7 @@ void UCombatComponent::SwapWeapons()
 {
 	if (!EquippedWeapon) return;
 	if (!SecondaryWeapon) return;
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
 	std::swap(EquippedWeapon, SecondaryWeapon);
 
@@ -530,13 +518,70 @@ void UCombatComponent::Fire()
 
 	bCanFire = false;
 
-	ServerFire(HitTarget);
-
 	// 총을 쏠 때 십자선이 벌어지는 기준
 	CrosshairShootingFactor = 0.75;
 
-	// 총을 발사하면 일정 시간 동안 지속 발사
+	if (EquippedWeapon)
+	{
+		switch (EquippedWeapon->GetFireType())
+		{
+		case EFireType::EFT_Projectile:
+			FireProjectileWeapon();
+			break;
+		case EFireType::EFT_HitScan:
+			FireHitScanWeapon();
+			break;
+		case EFireType::EFT_Shotgun:
+			FireShotgun();
+			break;
+		default:
+			break;
+		}
+	}
+
+	// 총 발사 쿨타임 체크
 	StartFireTimer();
+}
+
+void UCombatComponent::FireProjectileWeapon()
+{
+	LocalFire(HitTarget);
+	ServerFire(HitTarget);
+}
+
+void UCombatComponent::FireHitScanWeapon()
+{
+	if (EquippedWeapon)
+	{
+		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
+		LocalFire(HitTarget);
+		ServerFire(HitTarget);
+	}
+}
+
+void UCombatComponent::FireShotgun()
+{
+}
+
+void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
+{
+	// 클라이언트의 반응성을 높이기위해 클라에서 자체 처리해도 되는 것들을 수행
+	if (!Character) return;
+	if (!EquippedWeapon) return;
+
+	// 샷건은 장전 중에 쏠 수 있음
+	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
+	{
+		Character->PlayFireMontage(bAiming);
+		EquippedWeapon->Fire(TraceHitTarget);
+		CombatState = ECombatState::ECS_Unoccupied;
+		return;
+	}
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
+
+	// 발사 모션과 발사 이펙트는 각자 클라에서 재생. 서버를 기다릴 필요가 없음
+	Character->PlayFireMontage(bAiming);
+	EquippedWeapon->Fire(TraceHitTarget);
 }
 
 void UCombatComponent::StartFireTimer()

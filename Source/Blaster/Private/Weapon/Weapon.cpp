@@ -9,12 +9,17 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "PlayerController/BlasterPlayerController.h"
 #include "BlasterComponents/CombatComponent.h"
+#include "Kismet/KismetMathLibrary.h"
+//#include "DrawDebugHelpers.h"
 
 AWeapon::AWeapon()
 	: ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
 	, bAutomatic(true)
 	, FireDelay(0.15f)
+	, DistanceToSphere(800.f)
+	, SphereRadius(75.f)
+	, bUseScatter(false)
 	, bDestroyWeapon(false)
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -53,8 +58,7 @@ void AWeapon::BeginPlay()
 		PickupWidget->SetVisibility(false);
 	}
 
-	// 충돌 처리는 서버에서만 진행하도록 함
-	if (HasAuthority() && AreaSphere)
+	if (AreaSphere)
 	{
 		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
@@ -116,8 +120,11 @@ void AWeapon::Fire(const FVector& HitTarget)
 		}
 	}
 
-	// 탄약 사용
-	SpendRound();
+	// 서버에서 탄약 사용
+	if (HasAuthority())
+	{
+		SpendRound();
+	}
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -203,6 +210,34 @@ void AWeapon::EnableCustomDepth(bool bEnable)
 		WeaponMesh->SetRenderCustomDepth(bEnable);
 
 	}
+}
+
+FVector AWeapon::TraceEndWithScatter(const FVector& HitTarget) const
+{
+	if (!GetWeaponMesh()) return FVector();
+
+	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
+	if (!MuzzleFlashSocket) return FVector();
+
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector TraceStart = SocketTransform.GetLocation();
+
+	// 샷건처럼 탄환을 방사시키기 위해 타겟지점에 원형 구체를 생성
+	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
+	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
+	// 구체 기준으로 랜덤한 벡터 하나를 고름
+	const FVector RandVec = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
+	const FVector EndLoc = SphereCenter + RandVec;
+	// 랜덤한 벡터까지의 거리
+	const FVector ToEndLoc = EndLoc - TraceStart;
+
+	/*DrawDebugSphere(GetWorld(), SphereCenter, SphereRadius, 12, FColor::Red, true);
+	DrawDebugSphere(GetWorld(), EndLoc, 4.f, 12, FColor::Orange, true);
+	DrawDebugLine(GetWorld(), TraceStart, TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size(), FColor::Cyan, true);*/
+
+	// 시작지점에서 랜덤위치까지 Trace 거리/사이즈만큼이 엔드포인트
+	// 거리/사이즈는 그냥 기존 거리가 너무 멀어서 정한 임의의 사정거리임
+	return TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size();
 }
 
 void AWeapon::SpendRound()
