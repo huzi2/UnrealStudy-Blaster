@@ -553,6 +553,7 @@ void UCombatComponent::FireHitScanWeapon()
 {
 	if (EquippedWeapon)
 	{
+		// 분산 공격 계산을 서버에서 하고 그 HitTarget을 공유함으로써 서버와 클라 모두 같은 방사형 공격을 한다.
 		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
 		LocalFire(HitTarget);
 		ServerFire(HitTarget);

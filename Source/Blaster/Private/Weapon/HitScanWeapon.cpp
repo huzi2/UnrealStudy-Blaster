@@ -6,7 +6,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundCue.h"
-//#include "Weapon/WeaponTypes.h"
 
 AHitScanWeapon::AHitScanWeapon()
 	: Damage(20.f)
