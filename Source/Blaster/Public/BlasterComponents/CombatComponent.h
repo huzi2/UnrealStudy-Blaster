@@ -40,6 +40,12 @@ private:
 	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
 
 	UFUNCTION(Server, Reliable)
+	void ServerShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
+
+	UFUNCTION(Server, Reliable)
 	void ServerReload();
 
 	UFUNCTION(Server, Reliable)
@@ -82,6 +88,7 @@ private:
 	void FireHitScanWeapon();
 	void FireShotgun();
 	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
+	void LocalShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
 	void StartFireTimer();
 	void FireTimerFinished();
 	bool CanFire() const;
@@ -116,8 +123,11 @@ private:
 	UFUNCTION()
 	void OnRep_SecondaryWeapon();
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_Aiming)
 	bool bAiming;
+
+	UFUNCTION()
+	void OnRep_Aiming();
 
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float BaseWalkSpeed;
@@ -210,4 +220,6 @@ private:
 	// 플레이어가 가지고 있는 무기 종류별 탄약
 	// 해당 변수를 레플리케이션하지 않고 CarriedAmmo로 따로 가지고 있는 이유는 TMap은 해쉬맵으로 레플리케이션이 안된다.
 	TMap<EWeaponType, int32> CarriedAmmoMap;
+
+	bool bAimButtonPressed;
 };

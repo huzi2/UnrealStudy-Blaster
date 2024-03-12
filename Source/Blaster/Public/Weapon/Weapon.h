@@ -58,6 +58,13 @@ protected:
 	UFUNCTION()
 	void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
+private:
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateAmmo(int32 ServerAmmo);
+
+	UFUNCTION(Client, Reliable)
+	void ClientAddAmmo(int32 AmmoToAdd);
+
 public:
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
@@ -95,6 +102,13 @@ private:
 	void OnEquipped();
 	void OnEquippedSecondary();
 	void OnDropped();
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float DistanceToSphere;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float SphereRadius;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
@@ -151,23 +165,14 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Automatic")
 	float FireDelay;
 
-	UPROPERTY(ReplicatedUsing = OnRep_Ammo, EditAnywhere, Category = "Ammo")
+	UPROPERTY(EditAnywhere, Category = "Ammo")
 	int32 Ammo;
-
-	UFUNCTION()
-	void OnRep_Ammo();
 
 	UPROPERTY(EditAnywhere, Category = "Ammo")
 	int32 MagCapacity;
 
 	UPROPERTY(EditAnywhere, Category = "Sound")
 	TObjectPtr<USoundCue> EquipSound;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	float DistanceToSphere;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	float SphereRadius;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	bool bUseScatter;
@@ -180,4 +185,8 @@ private:
 
 private:
 	bool bDestroyWeapon;
+
+	// Ammo에 대해 처리되지 않은 서버 요청 수
+	// SpendRound()에서 증가하고, ClientUpdateAmmo()에서 줄어들 것
+	int32 Sequence;
 };

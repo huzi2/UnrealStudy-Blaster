@@ -14,9 +14,11 @@
 #include "Sound/SoundCue.h"
 #include "Character/BlasterAnimInstance.h"
 #include "Weapon/Projectile.h"
+#include "Weapon/Shotgun.h"
 
 UCombatComponent::UCombatComponent()
-	: BaseWalkSpeed(600.f)
+	: bAiming(false)
+	, BaseWalkSpeed(600.f)
 	, AimWalkSpeed(450.f)
 	, ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
@@ -32,6 +34,7 @@ UCombatComponent::UCombatComponent()
 	, CombatState(ECombatState::ECS_Unoccupied)
 	, Grenades(4)
 	, bCanFire(true)
+	, bAimButtonPressed(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -119,10 +122,24 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& Trac
 
 void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
 {
+	// 다른 클라들도 해당 로컬 클라가 쏘는 모션과 이펙트를 봐야하므로 다른 모든 클라와 서버에서 재생
 	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
 
 	// 클라이언트가 조종하는 경우에 수행
 	LocalFire(TraceHitTarget);
+}
+
+void UCombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets)
+{
+	MulticastShotgunFire(TraceHitTargets);
+}
+
+void UCombatComponent::MulticastShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets)
+{
+	// 다른 클라들도 해당 로컬 클라가 쏘는 모션과 이펙트를 봐야하므로 다른 모든 클라와 서버에서 재생
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+
+	LocalShotgunFire(TraceHitTargets);
 }
 
 void UCombatComponent::ServerReload_Implementation()
@@ -289,6 +306,8 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	{
 		Character->ShowSniperScopeWidget(bIsAiming);
 	}
+
+	if (Character->IsLocallyControlled()) bAimButtonPressed = bIsAiming;
 }
 
 void UCombatComponent::Reload()
@@ -545,8 +564,16 @@ void UCombatComponent::Fire()
 
 void UCombatComponent::FireProjectileWeapon()
 {
-	LocalFire(HitTarget);
-	ServerFire(HitTarget);
+	if (EquippedWeapon)
+	{
+		// 분산 공격 계산을 서버에서 하고 그 HitTarget을 공유함으로써 서버와 클라 모두 같은 방사형 공격을 한다.
+		// 발사체 무기도 UseScatter을 체크하면 방사하면서 공격할 수 있다.
+		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
+		
+		// 서버에서는 로컬 수행안함. 아래 ServerFire() -> MulticastFire()하면서 멀티캐스트에서 로컬을 이미 수행함
+		if(Character && !Character->HasAuthority()) LocalFire(HitTarget);
+		ServerFire(HitTarget);
+	}
 }
 
 void UCombatComponent::FireHitScanWeapon()
@@ -555,29 +582,30 @@ void UCombatComponent::FireHitScanWeapon()
 	{
 		// 분산 공격 계산을 서버에서 하고 그 HitTarget을 공유함으로써 서버와 클라 모두 같은 방사형 공격을 한다.
 		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
-		LocalFire(HitTarget);
+		
+		if (Character && !Character->HasAuthority()) LocalFire(HitTarget);
 		ServerFire(HitTarget);
 	}
 }
 
 void UCombatComponent::FireShotgun()
 {
+	if (AShotgun* Shotgun = Cast<AShotgun>(EquippedWeapon))
+	{
+		TArray<FVector_NetQuantize> HitTargets;
+		Shotgun->ShotgunTraceEndWithScatter(HitTarget, HitTargets);
+		
+		if (Character && !Character->HasAuthority()) LocalShotgunFire(HitTargets);
+		ServerShotgunFire(HitTargets);
+	}
 }
 
 void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
 {
+	// 공격을 직접하는 로컬 플레이어의 처리
 	// 클라이언트의 반응성을 높이기위해 클라에서 자체 처리해도 되는 것들을 수행
 	if (!Character) return;
 	if (!EquippedWeapon) return;
-
-	// 샷건은 장전 중에 쏠 수 있음
-	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
-	{
-		Character->PlayFireMontage(bAiming);
-		EquippedWeapon->Fire(TraceHitTarget);
-		CombatState = ECombatState::ECS_Unoccupied;
-		return;
-	}
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
 	// 발사 모션과 발사 이펙트는 각자 클라에서 재생. 서버를 기다릴 필요가 없음
@@ -585,10 +613,24 @@ void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
 	EquippedWeapon->Fire(TraceHitTarget);
 }
 
+void UCombatComponent::LocalShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets)
+{
+	AShotgun* Shotgun = Cast<AShotgun>(EquippedWeapon);
+	if (!Shotgun) return;
+	if (!Character) return;
+	// 샷건은 장전 중에 쏠 수 있음
+	if (CombatState == ECombatState::ECS_Unoccupied || CombatState == ECombatState::ECS_Reloading)
+	{
+		Character->PlayFireMontage(bAiming);
+		Shotgun->FireShotgun(TraceHitTargets);
+		CombatState = ECombatState::ECS_Unoccupied;
+	}
+}
+
 void UCombatComponent::StartFireTimer()
 {
-	if (!EquippedWeapon) return;
 	if (!Character) return;
+	if (!EquippedWeapon) return;
 
 	// 버튼을 누르는 동안 연사하도록함
 	Character->GetWorldTimerManager().SetTimer(FireTimer, this, &ThisClass::FireTimerFinished, EquippedWeapon->GetFireDelay());
@@ -896,6 +938,15 @@ void UCombatComponent::OnRep_SecondaryWeapon()
 		AttachActorToBackpack(SecondaryWeapon);
 
 		PlayEquipWeaponSound(SecondaryWeapon);
+	}
+}
+
+void UCombatComponent::OnRep_Aiming()
+{
+	// 클라이언트가 렉이 심할 경우 에임 버튼이 계속 눌리는 문제 수정
+	if (Character && Character->IsLocallyControlled())
+	{
+		bAiming = bAimButtonPressed;
 	}
 }
 
