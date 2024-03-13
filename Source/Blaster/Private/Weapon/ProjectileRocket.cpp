@@ -8,6 +8,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/AudioComponent.h"
 #include "Weapon/RocketMovementComponent.h"
+#include "NiagaraSystemInstanceController.h"
 
 AProjectileRocket::AProjectileRocket()
 {
@@ -64,7 +65,7 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, 
 	// 이펙트 생성을 중지
 	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstanceController())
 	{
-		TrailSystemComponent->GetSystemInstance()->Deactivate();
+		TrailSystemComponent->GetSystemInstanceController()->Deactivate();
 	}
 
 	if (ProjectileLoopComponent && ProjectileLoopComponent->IsPlaying())

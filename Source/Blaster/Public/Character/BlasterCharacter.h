@@ -19,6 +19,8 @@ class AWeapon;
 class ABlasterPlayerController;
 class USoundCue;
 class ABlasterPlayerState;
+class UBoxComponent;
+class ULagCompensationComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
@@ -93,6 +95,7 @@ public:
 	void UpdateHUDHealth();
 	void UpdateHUDShield();
 	void SpawnDefaultWeapon();
+	bool IsLocallyReloading() const;
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -123,6 +126,62 @@ private:
 	void DropOrDestroyWeapon(AWeapon* Weapon);
 	void DropOrDestroyWeapons();
 
+public:
+	// 서버 되감기를 위한 히트 박스들. 붙일 본의 이름과 동일하게 함
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> head;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> pelvis;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> spine_02;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> spine_03;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> upperarm_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> upperarm_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> lowerarm_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> lowerarm_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> hand_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> hand_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> backpack;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> blanket;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> thigh_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> thigh_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> calf_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> calf_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> foot_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> foot_r;
+
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<USpringArmComponent> CameraBoom;
@@ -141,6 +200,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UBuffComponent> Buff;
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<ULagCompensationComponent> LagCompensation;
 
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	TObjectPtr<AWeapon> OverlappingWeapon;

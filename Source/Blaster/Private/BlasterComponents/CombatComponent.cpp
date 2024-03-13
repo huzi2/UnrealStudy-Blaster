@@ -35,6 +35,7 @@ UCombatComponent::UCombatComponent()
 	, Grenades(4)
 	, bCanFire(true)
 	, bAimButtonPressed(false)
+	, bLocallyReloading(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -147,7 +148,8 @@ void UCombatComponent::ServerReload_Implementation()
 	// 재장전시 서버에서 하는 행동들임
 	// 클라는 CombatState를 수정하면서 OnRep_CombatState()를 통해 수행
 	CombatState = ECombatState::ECS_Reloading;
-	HandleReload();
+	// 서버에서 조종하는 경우 두 번 호출되는 것 방지. 이미 Reload에서 호출 중임
+	if(Character && !Character->IsLocallyControlled()) HandleReload();
 }
 
 void UCombatComponent::ServerThrowGrenade_Implementation()
@@ -191,6 +193,8 @@ void UCombatComponent::FinishReloading()
 {
 	// 애니메이션 블루프린트에서 리로드 모션 끝나면 호출할 함수
 	if (!Character) return;
+
+	bLocallyReloading = false;
 
 	// 탄약 갱신은 서버에서만 작동
 	if (Character->HasAuthority())
@@ -312,9 +316,15 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 
 void UCombatComponent::Reload()
 {
-	if (CarriedAmmo > 0 && CombatState == ECombatState::ECS_Unoccupied && EquippedWeapon && !EquippedWeapon->IsFull())
+	if (CarriedAmmo > 0 && CombatState == ECombatState::ECS_Unoccupied && EquippedWeapon && !EquippedWeapon->IsFull() && !bLocallyReloading)
 	{
+		// 로컬 클라에서 먼저해야할 일을 서버에게 맡기지 않고 바로함. 렉을 줄이기 위함
+		HandleReload();
+		// 서버에서 처리해야할 일을 요청
 		ServerReload();
+
+		// 애님 인스턴스에서 모션 처리를 위해 사용
+		bLocallyReloading = true;
 	}
 }
 
@@ -655,6 +665,7 @@ bool UCombatComponent::CanFire() const
 	if (!EquippedWeapon) return false;
 	if (EquippedWeapon->IsEmpty()) return false;
 	if (!bCanFire) return false;
+	if (bLocallyReloading) return false;
 
 	// 샷건은 장전 중에 쏠 수 있음
 	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true;
@@ -977,7 +988,8 @@ void UCombatComponent::OnRep_CombatState()
 		}
 		break;
 	case ECombatState::ECS_Reloading:
-		HandleReload();
+		// 조종하고 있는 클라는 이미 Reload()에서 호출 중임. 여기는 다른 클라들이 장전 모션을 보도록 다른 클라들이 호출
+		if (Character && !Character->IsLocallyControlled()) HandleReload();
 		break;
 	case ECombatState::ECS_ThrowingGrenade:
 		// 로컬 클라는 이미 버튼 누르면서 수행했고, 다른 클라들이 알 수 있도록 애니메이션 재생

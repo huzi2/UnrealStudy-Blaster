@@ -68,6 +68,7 @@ private:
 
 public:
 	FORCEINLINE int32 GetGrenades() const { return Grenades; }
+	FORCEINLINE bool GetLocallyReloading() const { return bLocallyReloading; }
 
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void SwapWeapons();
@@ -222,4 +223,5 @@ private:
 	TMap<EWeaponType, int32> CarriedAmmoMap;
 
 	bool bAimButtonPressed;
+	bool bLocallyReloading;
 };
