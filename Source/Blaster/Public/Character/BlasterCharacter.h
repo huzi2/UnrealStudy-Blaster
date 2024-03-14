@@ -64,6 +64,7 @@ public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 	FORCEINLINE UBuffComponent* GetBuff() const { return Buff; }
+	FORCEINLINE ULagCompensationComponent* GetLagCompensation() const { return LagCompensation; }
 	FORCEINLINE UAnimMontage* GetReloadMontage() const { return ReloadMontage; }
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE void SetHealth(float Amount) { Health = Amount; }
@@ -79,9 +80,10 @@ public:
 	FORCEINLINE UStaticMeshComponent* GetAttachedGrenade() const { return AttachedGrenade; }
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
 	FORCEINLINE void SetDisableGameplay(bool bDisable) { bDisableGameplay = bDisable; }
+	FORCEINLINE const TMap<FName, UBoxComponent*>& GetHitCollisionBoxes() const { return HitCollisionBoxes; }
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
-	ECombatState GetCombatState() const;
+	ECombatState GetCombatState() const;;
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped() const;
@@ -125,62 +127,6 @@ private:
 	void UpdateHUDAmmo();
 	void DropOrDestroyWeapon(AWeapon* Weapon);
 	void DropOrDestroyWeapons();
-
-public:
-	// 서버 되감기를 위한 히트 박스들. 붙일 본의 이름과 동일하게 함
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> head;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> pelvis;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> spine_02;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> spine_03;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> upperarm_l;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> upperarm_r;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> lowerarm_l;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> lowerarm_r;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> hand_l;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> hand_r;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> backpack;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> blanket;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> thigh_l;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> thigh_r;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> calf_l;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> calf_r;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> foot_l;
-
-	UPROPERTY(EditAnywhere, Category = "Hit Box")
-	TObjectPtr<UBoxComponent> foot_r;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -276,6 +222,64 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Grenade")
 	TObjectPtr<UStaticMeshComponent> AttachedGrenade;
+
+	// 서버 되감기를 위한 히트 박스들. 붙일 본의 이름과 동일하게 함
+	UPROPERTY()
+	TMap<FName, UBoxComponent*> HitCollisionBoxes;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> head;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> pelvis;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> spine_02;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> spine_03;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> upperarm_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> upperarm_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> lowerarm_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> lowerarm_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> hand_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> hand_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> backpack;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> blanket;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> thigh_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> thigh_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> calf_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> calf_r;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> foot_l;
+
+	UPROPERTY(EditAnywhere, Category = "Hit Box")
+	TObjectPtr<UBoxComponent> foot_r;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
