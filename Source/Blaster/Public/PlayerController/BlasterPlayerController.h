@@ -45,6 +45,8 @@ private:
 	void ClientJoinMidGame(const FName& StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime);
 
 public:
+	FORCEINLINE float GetSingleTripTime() const { return SingleTripTime; }
+
 	void SetHUDHealth(float Health, float MaxHealth);
 	void SetHUDShield(float Shield, float MaxShield);
 	void SetHUDScore(float Score);
@@ -103,6 +105,8 @@ private:
 
 	// 클라이언트와 서버의 시간 차이
 	float ClientServerDelta;
+	// 클라 <-> 서버 한번 전달하는 시간
+	float SingleTripTime;
 
 	float TimeSyncRunningTime;
 

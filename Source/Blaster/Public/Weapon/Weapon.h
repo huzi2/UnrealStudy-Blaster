@@ -66,6 +66,7 @@ private:
 	void ClientAddAmmo(int32 AmmoToAdd);
 
 public:
+	FORCEINLINE float GetDamage() const { return Damage; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
 	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
@@ -95,9 +96,11 @@ public:
 	void EnableCustomDepth(bool bEnable);
 	FVector TraceEndWithScatter(const FVector& HitTarget) const;
 
+protected:
+	void CheckInit();
+
 private:
 	void SpendRound();
-	void CheckInit();
 	void OnWeaponStateSet();
 	void OnEquipped();
 	void OnEquippedSecondary();
@@ -109,6 +112,18 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	float SphereRadius;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	float Damage;
+
+	UPROPERTY(EditAnywhere, Category = "Server Side Rewind")
+	bool bUseServerSideRewind;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterCharacter> BlasterOwnerCharacter;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterPlayerController> BlasterOwnerController;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
@@ -176,12 +191,6 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	bool bUseScatter;
-
-	UPROPERTY()
-	TObjectPtr<ABlasterCharacter> BlasterOwnerCharacter;
-
-	UPROPERTY()
-	TObjectPtr<ABlasterPlayerController> BlasterOwnerController;
 
 private:
 	bool bDestroyWeapon;

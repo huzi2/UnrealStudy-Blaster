@@ -6,11 +6,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundCue.h"
-
-AHitScanWeapon::AHitScanWeapon()
-	: Damage(20.f)
-{
-}
+#include "BlasterComponents/LagCompensationComponent.h"
+#include "PlayerController/BlasterPlayerController.h"
 
 void AHitScanWeapon::Fire(const FVector& HitTarget)
 {
@@ -25,14 +22,27 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 
 			FHitResult FireHit;
 			WeaponTraceHit(Start, HitTarget, FireHit);
+			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
 
-			// 데미지만 서버 확인
-			if (HasAuthority())
+			// 서버는 바로 데미지 확인
+			if (HasAuthority() || !bUseServerSideRewind)
 			{
-				if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor()))
+				if (BlasterCharacter)
 				{
 					AController* InstigatorController = BlasterCharacter->GetController();
 					UGameplayStatics::ApplyDamage(BlasterCharacter, Damage, InstigatorController, this, UDamageType::StaticClass());
+				}
+			}
+			// 클라의 경우 서버 되감기 기능을 사용한다면 서버 되감기로 충돌 판정 확인 후 데미지
+			// 서버 되감기로 높은 렉에서도 어느정도 정확한 타격 판정을 얻을 수 있다.
+			else if (!HasAuthority() && bUseServerSideRewind)
+			{
+				CheckInit();
+
+				if (BlasterCharacter && BlasterCharacter->IsLocallyControlled() && BlasterOwnerCharacter && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation())
+				{
+					// 클라에서 보는 타겟의 위치는 ServerTime - SingleTripTime으로 서버 시간에서 한번 패킷이 전달되는 시간만큼의 차이가 서버와 클라의 차이
+					BlasterOwnerCharacter->GetLagCompensation()->ServerScoreRequest(BlasterCharacter, Start, HitTarget, static_cast<double>(BlasterOwnerController->GetServerTime() - BlasterOwnerController->GetSingleTripTime()), this);
 				}
 			}
 

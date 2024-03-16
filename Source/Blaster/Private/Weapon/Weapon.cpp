@@ -15,6 +15,8 @@
 AWeapon::AWeapon()
 	: DistanceToSphere(800.f)
 	, SphereRadius(75.f)
+	, Damage(20.f)
+	, bUseServerSideRewind(false)
 	, ZoomedFOV(30.f)
 	, ZoomInterpSpeed(20.f)
 	, bAutomatic(true)
@@ -264,6 +266,19 @@ FVector AWeapon::TraceEndWithScatter(const FVector& HitTarget) const
 	return TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size();
 }
 
+void AWeapon::CheckInit()
+{
+	if (!BlasterOwnerCharacter)
+	{
+		BlasterOwnerCharacter = Cast<ABlasterCharacter>(GetOwner());
+	}
+
+	if (BlasterOwnerCharacter && !BlasterOwnerController)
+	{
+		BlasterOwnerController = Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller);
+	}
+}
+
 void AWeapon::SpendRound()
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
@@ -278,19 +293,6 @@ void AWeapon::SpendRound()
 	{
 		// 클라이언트의 경우 아직 처리되지 않은 서버의 명령으로 ++한다.
 		++Sequence;
-	}
-}
-
-void AWeapon::CheckInit()
-{
-	if (!BlasterOwnerCharacter)
-	{
-		BlasterOwnerCharacter = Cast<ABlasterCharacter>(GetOwner());
-	}
-
-	if (BlasterOwnerCharacter && !BlasterOwnerController)
-	{
-		BlasterOwnerController = Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller);
 	}
 }
 

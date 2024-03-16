@@ -13,9 +13,6 @@ UCLASS()
 class BLASTER_API AHitScanWeapon : public AWeapon
 {
 	GENERATED_BODY()
-	
-protected:
-	AHitScanWeapon();
 
 private:
 	virtual void Fire(const FVector& HitTarget) override;
@@ -24,9 +21,6 @@ protected:
 	void WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit);
 
 protected:
-	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
-	float Damage;
-
 	UPROPERTY(EditAnywhere, Category = "Hit Scan Weapon")
 	TObjectPtr<UParticleSystem> ImpactParticles;
 

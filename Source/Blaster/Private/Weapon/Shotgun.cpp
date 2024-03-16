@@ -7,6 +7,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundCue.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "BlasterComponents/LagCompensationComponent.h"
+#include "PlayerController/BlasterPlayerController.h"
 
 AShotgun::AShotgun()
 	: NumberOfPellets(10)
@@ -77,13 +79,37 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 		}
 
 		// 맞은 횟수만큼 한번에 데미지 계산
-		for (auto HitPair : HitMap)
+		for (const auto& HitPair : HitMap)
 		{
 			if (!HitPair.Key) continue;
 
-			if (AController* InstigatorController = HitPair.Key->GetController())
+			// 서버는 바로 데미지 확인
+			if (HasAuthority() || !bUseServerSideRewind)
 			{
+				AController* InstigatorController = HitPair.Key->GetController();
 				UGameplayStatics::ApplyDamage(HitPair.Key, Damage * HitPair.Value, InstigatorController, this, UDamageType::StaticClass());
+			}
+		}
+
+		// 클라의 경우 서버 되감기 기능을 사용한다면 서버 되감기로 충돌 판정 확인 후 데미지
+		// 서버 되감기로 높은 렉에서도 어느정도 정확한 타격 판정을 얻을 수 있다.
+		if (!HasAuthority() && bUseServerSideRewind)
+		{
+			CheckInit();
+
+			if (BlasterOwnerCharacter && BlasterOwnerCharacter->IsLocallyControlled() && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation())
+			{
+				TArray<ABlasterCharacter*> HitCharacters;
+				HitCharacters.Reserve(HitTargets.Num());
+
+				for (const auto& HitPair : HitMap)
+				{
+					if (!HitPair.Key) continue;
+					HitCharacters.Add(HitPair.Key);
+				}
+
+				// 클라에서 보는 타겟의 위치는 ServerTime - SingleTripTime으로 서버 시간에서 한번 패킷이 전달되는 시간만큼의 차이가 서버와 클라의 차이
+				BlasterOwnerCharacter->GetLagCompensation()->ServerShotgunScoreRequest(HitCharacters, Start, HitTargets, static_cast<double>(BlasterOwnerController->GetServerTime() - BlasterOwnerController->GetSingleTripTime()), this);
 			}
 		}
 	}

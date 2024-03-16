@@ -22,6 +22,7 @@ ABlasterPlayerController::ABlasterPlayerController()
 	, HighPingThreshold(50.f)
 	, CounddownInt(0)
 	, ClientServerDelta(0.f)
+	, SingleTripTime(0.f)
 	, TimeSyncRunningTime(0.f)
 	, bInitializeCharacterOverlay(false)
 	, HighPingRunningTime(0.f)
@@ -113,7 +114,8 @@ void ABlasterPlayerController::ClientReportServerTime_Implementation(float TimeO
 
 	// 서버가 보내준 시간에 지연 시간을 합쳐서 현재 올바른 서버 시간을 확인
 	// 0.5f는 지연시간이 왕복 기준이라 반으로 나눈것
-	const float CurrentServerTime = TimeServerReceivedClientRequest + (RoundTripTime * 0.5f);
+	SingleTripTime = RoundTripTime * 0.5f;
+	const float CurrentServerTime = TimeServerReceivedClientRequest + SingleTripTime;
 
 	// 서버와 클라이언트의 시간 차이 확인
 	ClientServerDelta = CurrentServerTime - GetWorld()->GetTimeSeconds();
