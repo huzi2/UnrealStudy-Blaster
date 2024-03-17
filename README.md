@@ -24,6 +24,11 @@
 - RPC 함수
 - 서버와 클라이언트 간 시간 동기화
   - <img width="515" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/80b1adae-2516-4032-984a-6b59b99436fd">
+- 서버 되감기로 핑이 높은 클라이언트의 사격을 보정
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/24c26d5d-5e11-45db-b567-347595003caf)
+  - 서버에서 클라이언트의 히트박스를 위치를 일정 시간동안 저장
+  - 클라이언트가 사격할 때의 시간을 서버에게 보내서 서버가 해당 시간의 히트박스를 확인해서 충돌확인
+  - 클라이언트의 핑이 높아도 정확한 사격이 가능해짐
 
 ### 게임 로직
 - 게임 모드의 매치 기능을 활용한 매치 상태 구현
@@ -51,9 +56,19 @@
   - 방사된 라인 트레이스 여러개를 쏘는 샷건
   - <img width="648" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/acdb6a5a-c911-4932-b12f-8f223528771b">
   - 투사체가 튕기는 유탄 발사기
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/c6bde558-75a3-4e10-9c8c-5e5429a7d31d)
+  - 수류탄
+- 주무기, 보조무기 구현
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/82091042-8e14-4d69-8648-49e502dd0dc5)
+  - 보조무기는 등에 붙이고 E키를 통해 무기를 스왑
 - 피직스 에셋을 활용한 메시 일부분 물리 적용
   - <img width="550" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/8262c8d6-1d02-43a4-b611-ca31bc32fbd4">
   - <img width="179" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/7cc1f458-d386-4805-81cd-da6c6ed251f2">
+- 필드 내 아이템 구현
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/c7af4336-a5f0-4e70-8d6d-279d783ee941)
+  - 체력 회복, 보호막, 이동속도, 점프높이 등 다양한 버프형 아이템 구현
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/70668899-bf3c-46cb-9957-5e440b1b3bce)
+  - 무기 탄약 아이템
 - 향상된 입력
 
 ### 프로그래밍
@@ -69,8 +84,8 @@
 
 ### UI
 - 전체적인 게임 HUD
-  - <img width="1469" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/0da9826c-8f35-4913-ad54-48ae16d0ac37">
-  - 체력, 타이머, 킬데스, 탄약, 여분 탄약 표시
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/8c5dbdee-4996-4fae-ac56-ac536f0080b7)
+  - 체력, 보호막, 타이머, 킬데스, 탄약, 여분 탄약, 수류탄 표시
 - 십자선
   - <img width="242" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/92ebe8de-3d6c-4cca-8fcb-a4a05283a80a">
   - 평소 상태의 십자선
