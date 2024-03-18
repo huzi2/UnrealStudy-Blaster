@@ -19,5 +19,11 @@ private:
 	AProjectileBullet();
 
 private:
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& Event) final;
+#endif
+
+	virtual void BeginPlay() final;
 	virtual void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit) final;
 };

@@ -6,6 +6,7 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Weapon/Weapon.h"
+#include "Blaster/Blaster.h"
 
 ULagCompensationComponent::ULagCompensationComponent()
 	: MaxRecordTime(4.0)
@@ -237,16 +238,18 @@ FServerSideRewindResult ULagCompensationComponent::ConfirmHit(const FFramePackag
 	{
 		HeadBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		// 나중에 이 부분 아예 생성할 때 세팅해두는건 어떤지 확인
-		HeadBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+		HeadBox->SetCollisionResponseToChannel(ECC_HitBox, ECollisionResponse::ECR_Block);
 
 		FHitResult ConfirmHitResult;
 		// 충돌체크를 위해 원래 맞은 위치보다 조금 더 늘림
 		const FVector TraceEnd = TraceStart + (HitLocation - TraceStart) * 1.25f;
 
-		GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility);
+		GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECC_HitBox);
 		// 헤드샷 히트!
 		if (ConfirmHitResult.bBlockingHit)
 		{
+			DrawBox(ConfirmHitResult, FColor::Red);
+
 			// 맞은 캐릭터의 히트박스 정보를 원래대로 되돌린다.
 			ResetHitBoxes(HitCharacter, CurrentFrame);
 			// 메시의 충돌처리도 다시 킨다.
@@ -262,12 +265,14 @@ FServerSideRewindResult ULagCompensationComponent::ConfirmHit(const FFramePackag
 				if (!BoxPair.Value) continue;
 
 				BoxPair.Value->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-				BoxPair.Value->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+				BoxPair.Value->SetCollisionResponseToChannel(ECC_HitBox, ECollisionResponse::ECR_Block);
 
-				GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility);
+				GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECC_HitBox);
 				// 다른 부위 히트!
 				if (ConfirmHitResult.bBlockingHit)
 				{
+					DrawBox(ConfirmHitResult, FColor::Blue);
+
 					ResetHitBoxes(HitCharacter, CurrentFrame);
 					EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
 					// 헤드샷만 false
@@ -342,6 +347,120 @@ void ULagCompensationComponent::EnableCharacterMeshCollision(ABlasterCharacter* 
 	HitCharacter->GetMesh()->SetCollisionEnabled(CollisionEnabled);
 }
 
+void ULagCompensationComponent::DrawBox(const FHitResult& ConfirmHitResult, const FColor& Color) const
+{
+	if (ConfirmHitResult.Component.IsValid())
+	{
+		if (UBoxComponent* Box = Cast<UBoxComponent>(ConfirmHitResult.Component))
+		{
+			DrawDebugBox(GetWorld(), Box->GetComponentLocation(), Box->GetScaledBoxExtent(), FQuat(Box->GetComponentRotation()), Color, false, 8.f);
+		}
+	}
+}
+
+FServerSideRewindResult ULagCompensationComponent::ProjectileServerSideRewind(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize100& InitialVelocity, double HitTime) const
+{
+	FFramePackage FrameToCheck = GetFrameToCheck(HitCharacter, HitTime);
+	FrameToCheck.Character = HitCharacter;
+	return ProjectileConfirmHit(FrameToCheck, HitCharacter, TraceStart, InitialVelocity, HitTime);
+}
+
+FServerSideRewindResult ULagCompensationComponent::ProjectileConfirmHit(const FFramePackage& Package, ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize100& InitialVelocity, double HitTime) const
+{
+	if (!HitCharacter) return FServerSideRewindResult();
+	if (!GetWorld()) return FServerSideRewindResult();
+
+	// 발사체의 서버 되감기는 기존 히트스캔 서버 되감기와 초반부는 유사함
+
+	// 맞은 캐릭터의 현재 위치 히트박스 정보를 얻어옴(되감기 후에 다시 원래대로 돌릴 때 사용)
+	FFramePackage CurrentFrame;
+	CacheBoxPositions(HitCharacter, CurrentFrame);
+
+	// 캐릭터의 히트박스를 패키지 정보대로 수정(되감기)
+	MoveBoxes(HitCharacter, Package);
+
+	// 메시의 충돌처리는 끈다.
+	EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::NoCollision);
+
+	// head부터 활성화시켜서 맞았는지 확인
+	if (UBoxComponent* HeadBox = HitCharacter->GetHitCollisionBoxes()[TEXT("head")])
+	{
+		HeadBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		// 나중에 이 부분 아예 생성할 때 세팅해두는건 어떤지 확인
+		HeadBox->SetCollisionResponseToChannel(ECC_HitBox, ECollisionResponse::ECR_Block);
+	}
+
+	// 여기서부터 발사체는 라인트레이스가 아닌 발사체 예측으로 충돌 처리를 확인
+	FPredictProjectilePathParams PathParams;
+	// 트레이스 채널을 사용
+	PathParams.bTraceWithChannel = true;
+	PathParams.TraceChannel = ECC_HitBox;
+	// 트레이스가 충돌체와 충돌
+	PathParams.bTraceWithCollision = true;
+	// 발사체가 날아가는 시간. 최대 녹화 시간보다 길 필요는 없음
+	PathParams.MaxSimTime = MaxRecordTime;
+	// 얼마나 시뮬레이션할 것인가? 10 ~ 30. 30이 제일 자세하게 시뮬
+	PathParams.SimFrequency = 15.f;
+	// 발사체 시작 위치
+	PathParams.StartLocation = TraceStart;
+	// 발사체의 방향과 속도
+	PathParams.LaunchVelocity = InitialVelocity;
+	// 발사체의 크기
+	PathParams.ProjectileRadius = 5.f;
+	// 임시 발사체가 무시할 액터
+	PathParams.ActorsToIgnore.Add(GetOwner());
+
+	// 발사체 예측을 디버그로 표시
+	PathParams.DrawDebugTime = 5.f;
+	PathParams.DrawDebugType = EDrawDebugTrace::ForDuration;
+
+	// 발사체 예측 수행
+	FPredictProjectilePathResult PathResult;
+	UGameplayStatics::PredictProjectilePath(this, PathParams, PathResult);
+
+	// 헤드샷 히트!
+	if (PathResult.HitResult.bBlockingHit)
+	{
+		DrawBox(PathResult.HitResult, FColor::Red);
+
+		// 맞은 캐릭터의 히트박스 정보를 원래대로 되돌린다.
+		ResetHitBoxes(HitCharacter, CurrentFrame);
+		// 메시의 충돌처리도 다시 킨다.
+		EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
+		// 맞은 정보와 헤드샷 정보를 true로 리턴
+		return FServerSideRewindResult{ true, true };
+	}
+	// 헤드에 맞지 않았으므로 다른 부위의 히트박스 확인
+	else
+	{
+		for (const auto& BoxPair : HitCharacter->GetHitCollisionBoxes())
+		{
+			if (!BoxPair.Value) continue;
+
+			BoxPair.Value->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			BoxPair.Value->SetCollisionResponseToChannel(ECC_HitBox, ECollisionResponse::ECR_Block);
+
+			// 발사체 예측 수행
+			UGameplayStatics::PredictProjectilePath(this, PathParams, PathResult);
+			// 다른 부위 히트!
+			if (PathResult.HitResult.bBlockingHit)
+			{
+				DrawBox(PathResult.HitResult, FColor::Blue);
+
+				ResetHitBoxes(HitCharacter, CurrentFrame);
+				EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
+				// 헤드샷만 false
+				return FServerSideRewindResult{ true, false };
+			}
+		}
+	}
+
+	ResetHitBoxes(HitCharacter, CurrentFrame);
+	EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
+	// 맞지 않았다.
+	return FServerSideRewindResult{ false, false };
+}
+
 FShotgunServerSideRewindResult ULagCompensationComponent::ShotgunServerSideRewind(const TArray<ABlasterCharacter*>& HitCharacters, const FVector_NetQuantize& TraceStart, const TArray<FVector_NetQuantize>& HitLocations, double HitTime) const
 {
 	TArray<FFramePackage> FramesToCheck;
@@ -390,7 +509,7 @@ FShotgunServerSideRewindResult ULagCompensationComponent::ShotgunConfirmHit(cons
 		if (UBoxComponent* HeadBox = Frame.Character->GetHitCollisionBoxes()[TEXT("head")])
 		{
 			HeadBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			HeadBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+			HeadBox->SetCollisionResponseToChannel(ECC_HitBox, ECollisionResponse::ECR_Block);
 		}
 	}
 
@@ -400,10 +519,12 @@ FShotgunServerSideRewindResult ULagCompensationComponent::ShotgunConfirmHit(cons
 		FHitResult ConfirmHitResult;
 		const FVector TraceEnd = TraceStart + (HitLocation - TraceStart) * 1.25f;
 
-		GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility);
+		GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECC_HitBox);
 
 		if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(ConfirmHitResult.GetActor()))
 		{
+			DrawBox(ConfirmHitResult, FColor::Red);
+
 			ShotResult.HeadShots.Contains(BlasterCharacter) ? ++ShotResult.HeadShots[BlasterCharacter] : ShotResult.HeadShots.Emplace(BlasterCharacter, 1);
 		}
 	}
@@ -418,7 +539,7 @@ FShotgunServerSideRewindResult ULagCompensationComponent::ShotgunConfirmHit(cons
 			if (!BoxPair.Value) continue;
 
 			BoxPair.Value->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			BoxPair.Value->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+			BoxPair.Value->SetCollisionResponseToChannel(ECC_HitBox, ECollisionResponse::ECR_Block);
 		}
 
 		if (UBoxComponent* HeadBox = Frame.Character->GetHitCollisionBoxes()[TEXT("head")])
@@ -433,10 +554,12 @@ FShotgunServerSideRewindResult ULagCompensationComponent::ShotgunConfirmHit(cons
 		FHitResult ConfirmHitResult;
 		const FVector TraceEnd = TraceStart + (HitLocation - TraceStart) * 1.25f;
 
-		GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility);
+		GetWorld()->LineTraceSingleByChannel(ConfirmHitResult, TraceStart, TraceEnd, ECC_HitBox);
 
 		if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(ConfirmHitResult.GetActor()))
 		{
+			DrawBox(ConfirmHitResult, FColor::Blue);
+
 			ShotResult.BodyShots.Contains(BlasterCharacter) ? ++ShotResult.BodyShots[BlasterCharacter] : ShotResult.HeadShots.Emplace(BlasterCharacter, 1);
 		}
 	}

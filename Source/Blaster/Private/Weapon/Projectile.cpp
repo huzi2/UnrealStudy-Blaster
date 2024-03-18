@@ -9,10 +9,12 @@
 #include "NiagaraFunctionLibrary.h"
 
 AProjectile::AProjectile()
-	: Damage(20.f)
+	: bUseServerSideRewind(false)
+	, InitialSpeed(15000.f)
 	, DestroyTime(3.f)
 	, DamageInnerRadius(200.f)
 	, DamageOuterRadius(500.f)
+	, Damage(20.f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 생성은 서버에서만 진행하고 클라들은 복사본만 얻어옴

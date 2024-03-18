@@ -39,7 +39,7 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			{
 				CheckInit();
 
-				if (BlasterCharacter && BlasterCharacter->IsLocallyControlled() && BlasterOwnerCharacter && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation())
+				if (BlasterCharacter && BlasterOwnerCharacter && BlasterOwnerCharacter->IsLocallyControlled() && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation())
 				{
 					// 클라에서 보는 타겟의 위치는 ServerTime - SingleTripTime으로 서버 시간에서 한번 패킷이 전달되는 시간만큼의 차이가 서버와 클라의 차이
 					BlasterOwnerCharacter->GetLagCompensation()->ServerScoreRequest(BlasterCharacter, Start, HitTarget, static_cast<double>(BlasterOwnerController->GetServerTime() - BlasterOwnerController->GetSingleTripTime()), this);

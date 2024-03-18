@@ -29,6 +29,13 @@ protected:
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
+public:
+	FORCEINLINE float GetInitialSpeed() const { return InitialSpeed; }
+	FORCEINLINE void SetDamage(float WeaponDamage) { Damage = WeaponDamage; }
+	FORCEINLINE void SetUseServerSideRewind(bool bServerSideRewind) { bUseServerSideRewind = bServerSideRewind; }
+	FORCEINLINE void SetTraceStart(const FVector_NetQuantize& Start) { TraceStart = Start; }
+	FORCEINLINE void SetInitialVelocity(const FVector_NetQuantize100& Velocity) { InitialVelocity = Velocity; }
+
 protected:
 	void SpawnTrailSystem();
 	void StartDestroyTimer();
@@ -53,11 +60,14 @@ protected:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<USoundCue> ImpactSound;
 
-	UPROPERTY(EditAnywhere)
-	float Damage;
-
 	UPROPERTY()
 	TObjectPtr<UNiagaraComponent> TrailSystemComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Server Side Rewind")
+	bool bUseServerSideRewind;
+	
+	UPROPERTY(EditAnywhere)
+	float InitialSpeed;
 
 private:
 	UPROPERTY(EditAnywhere)
@@ -77,6 +87,13 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float DamageOuterRadius;
+
+protected:
+	float Damage;
+
+	// 서버 되감기로 발사체 예측에 사용되는 변수들
+	FVector_NetQuantize TraceStart;
+	FVector_NetQuantize100 InitialVelocity;
 
 private:
 	FTimerHandle DestroyTimer;
