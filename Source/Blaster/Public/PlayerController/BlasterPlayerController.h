@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerController.h"
 #include "BlasterPlayerController.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
+
 class ABlasterGameMode;
 class ABlasterHUD;
 /**
@@ -43,6 +45,10 @@ private:
 	// 서버에서 확인한 매치 상태를 클라들에게 알림
 	UFUNCTION(Client, Reliable)
 	void ClientJoinMidGame(const FName& StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime);
+
+	// 클라이언트의 핑 상태를 서버에게 알려줌
+	UFUNCTION(Server, Reliable)
+	void ServerReportPingStatus(bool bHighPing);
 
 public:
 	FORCEINLINE float GetSingleTripTime() const { return SingleTripTime; }
@@ -95,6 +101,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ABlasterHUD> BlasterHUD;
+
+public:
+	FHighPingDelegate HighPingDelegate;
 
 private:
 	float WarmupTime;

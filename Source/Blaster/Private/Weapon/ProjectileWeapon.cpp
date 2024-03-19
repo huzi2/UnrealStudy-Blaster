@@ -23,7 +23,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 	if (!MuzzleFlashSocket) return;
 
 	// 서버 되감기를 사용할 경우
-	// 서버는 서버 되감기를 사용할 필요가 없다. 자신이 발사하는 발사체는 레플리케이트, 다른 클라가 발사하는 발사체는 레플리케이트할 필요없다.
+	// 서버 자신이 발사하는 발사체는 레플리케이트, 다른 클라가 발사하는 발사체는 레플리케이트할 필요없고 서버 되감기만 수행한다.
 	// 클라는 자신이 발사할 경우 서버 되감기를 사용하고, 레플리케이트는 하지 않는다. 다른 클라는 서버 되감기도, 레플리케이트도 하지 않는다.
 
 	// 서버 되감기를 사용하지 않는 경우
@@ -43,7 +43,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 	// 서버 되감기를 확인. 서버 되감기를 사용한다면 클라이언트도 로컬로 발사체를 생성한다.
 	if (bUseServerSideRewind)
 	{
-		// 서버의 경우. 서버 되감기를 사용하지 않는다.
+		// 서버의 경우
 		if (InstigatorPawn->HasAuthority())
 		{
 			// 서버 본인이 발사한 경우 레플리케이트 되는 발사체를 발사한다.
@@ -53,11 +53,11 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 				SpawnedProjectile->SetUseServerSideRewind(false);
 				SpawnedProjectile->SetDamage(Damage);
 			}
-			// 서버가 아닌 다른 클라가 발사한걸 서버가 보는 경우는 레플리케이트하지 않는 발사체를 발사
+			// 서버가 아닌 다른 클라가 발사한걸 서버가 보는 경우는 레플리케이트하지 않는 발사체를 발사하고 서버 되감기 사용
 			else
 			{
 				SpawnedProjectile = World->SpawnActor<AProjectile>(ServerSideRewindProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
-				SpawnedProjectile->SetUseServerSideRewind(false);
+				SpawnedProjectile->SetUseServerSideRewind(true);
 			}
 		}
 		// 클라이언트의 경우

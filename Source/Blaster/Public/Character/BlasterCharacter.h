@@ -81,6 +81,9 @@ public:
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
 	FORCEINLINE void SetDisableGameplay(bool bDisable) { bDisableGameplay = bDisable; }
 	FORCEINLINE const TMap<FName, UBoxComponent*>& GetHitCollisionBoxes() const { return HitCollisionBoxes; }
+	FORCEINLINE bool IsbFinishedSwapping() const { return bFinishedSwapping; }
+	FORCEINLINE void SetIsbFinishedSwapping(bool Finished) { bFinishedSwapping = Finished; }
+
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
 	ECombatState GetCombatState() const;;
@@ -93,6 +96,7 @@ public:
 	void PlayHitReactMontage();
 	void PlayElimMontage();
 	void PlayThrowGrenadeMontage();
+	void PlaySwapMontage();
 	void Elim();
 	void UpdateHUDHealth();
 	void UpdateHUDShield();
@@ -170,6 +174,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TObjectPtr<UAnimMontage> ThrowGrenadeMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TObjectPtr<UAnimMontage> SwapMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TSubclassOf<AWeapon> DefaultWeaponClass;
@@ -341,4 +348,6 @@ private:
 	bool bElimmed;
 	FTimerHandle ElimTimer;
 	FOnTimelineFloat DissolveTrack;
+	
+	bool bFinishedSwapping;
 };

@@ -24,8 +24,11 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			WeaponTraceHit(Start, HitTarget, FireHit);
 			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
 
+			CheckInit();
+			const bool bCauseAuthDamage = !bUseServerSideRewind || BlasterOwnerCharacter->IsLocallyControlled();
+
 			// 서버는 바로 데미지 확인
-			if (HasAuthority() || !bUseServerSideRewind)
+			if (HasAuthority() && bCauseAuthDamage)
 			{
 				if (BlasterCharacter)
 				{
@@ -35,10 +38,9 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			}
 			// 클라의 경우 서버 되감기 기능을 사용한다면 서버 되감기로 충돌 판정 확인 후 데미지
 			// 서버 되감기로 높은 렉에서도 어느정도 정확한 타격 판정을 얻을 수 있다.
-			else if (!HasAuthority() && bUseServerSideRewind)
+			if (!HasAuthority() && bUseServerSideRewind)
 			{
-				CheckInit();
-
+				
 				if (BlasterCharacter && BlasterOwnerCharacter && BlasterOwnerCharacter->IsLocallyControlled() && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation())
 				{
 					// 클라에서 보는 타겟의 위치는 ServerTime - SingleTripTime으로 서버 시간에서 한번 패킷이 전달되는 시간만큼의 차이가 서버와 클라의 차이

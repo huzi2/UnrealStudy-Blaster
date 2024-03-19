@@ -241,6 +241,40 @@ void UCombatComponent::LaunchGrenade()
 	}
 }
 
+void UCombatComponent::FinishSwapAttachWeapons()
+{
+	if (!EquippedWeapon) return;
+	if (!SecondaryWeapon) return;
+
+	std::swap(EquippedWeapon, SecondaryWeapon);
+
+	// 기존 보조무기를 오른손에 장착하고 HUD 업데이트
+	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+	AttachActorToRightHand(EquippedWeapon);
+	EquippedWeapon->SetHUDAmmo();
+	UpdateCarriedAmmo();
+	PlayEquipWeaponSound(EquippedWeapon);
+
+	// 기존 메인무기를 배낭에 장착
+	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
+	AttachActorToBackpack(SecondaryWeapon);
+}
+
+void UCombatComponent::FinishSwap()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+
+	if (Character)
+	{
+		Character->SetIsbFinishedSwapping(true);
+	}
+
+	if (SecondaryWeapon)
+	{
+		SecondaryWeapon->EnableCustomDepth(true);
+	}
+}
+
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!WeaponToEquip) return;
@@ -270,22 +304,18 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 
 void UCombatComponent::SwapWeapons()
 {
-	if (!EquippedWeapon) return;
-	if (!SecondaryWeapon) return;
+	if (!Character) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
-	std::swap(EquippedWeapon, SecondaryWeapon);
+	// 서버에서 재생되는 것
+	Character->PlaySwapMontage();
+	CombatState = ECombatState::ECS_SwappingWeapons;
+	Character->SetIsbFinishedSwapping(false);
 
-	// 기존 보조무기를 오른손에 장착하고 HUD 업데이트
-	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-	AttachActorToRightHand(EquippedWeapon);
-	EquippedWeapon->SetHUDAmmo();
-	UpdateCarriedAmmo();
-	PlayEquipWeaponSound(EquippedWeapon);
-
-	// 기존 메인무기를 배낭에 장착
-	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
-	AttachActorToBackpack(SecondaryWeapon);
+	if (SecondaryWeapon)
+	{
+		SecondaryWeapon->EnableCustomDepth(false);
+	}
 }
 
 void UCombatComponent::SetAiming(bool bIsAiming)
@@ -665,11 +695,11 @@ bool UCombatComponent::CanFire() const
 	if (!EquippedWeapon) return false;
 	if (EquippedWeapon->IsEmpty()) return false;
 	if (!bCanFire) return false;
-	if (bLocallyReloading) return false;
 
 	// 샷건은 장전 중에 쏠 수 있음
 	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true;
 
+	if (bLocallyReloading) return false;
 	if (CombatState != ECombatState::ECS_Unoccupied) return false;
 	return true;
 }
@@ -1000,6 +1030,13 @@ void UCombatComponent::OnRep_CombatState()
 			AttachActorToLeftHand(EquippedWeapon);
 
 			ShowAttachedGrenade(true);
+		}
+		break;
+	case ECombatState::ECS_SwappingWeapons:
+		// 다른 클라들이 무기 스왑 모션을 볼 수 있도록
+		if (Character && !Character->IsLocallyControlled())
+		{
+			Character->PlaySwapMontage();
 		}
 		break;
 	default:

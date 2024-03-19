@@ -38,6 +38,7 @@ ABlasterCharacter::ABlasterCharacter()
 	, bDisableGameplay(false)
 	, TurnThreshold(0.5f)
 	, bElimmed(false)
+	, bFinishedSwapping(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -604,6 +605,15 @@ void ABlasterCharacter::PlayThrowGrenadeMontage()
 	}
 }
 
+void ABlasterCharacter::PlaySwapMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && SwapMontage)
+	{
+		AnimInstance->Montage_Play(SwapMontage);
+	}
+}
+
 void ABlasterCharacter::Elim()
 {
 	// 캐릭터가 죽는 처리는 서버에서 행한다.
@@ -706,10 +716,18 @@ void ABlasterCharacter::EquipButtonPressed()
 {
 	if (bDisableGameplay) return;
 
-	if (Combat)
+	if (Combat && Combat->CombatState == ECombatState::ECS_Unoccupied)
 	{
 		// 서버에게 무기장착 요구. 서버면 바로 장착하고, 클라면 서버를 통해서 장착
 		ServerEquipButtonPressed();
+
+		// 키를 누른 로컬 클라에서 호출하는 것. 서버 본인은 SwapWeapons()에서 할 것
+		if (!HasAuthority() && Combat->ShouldSwapWeapons() && !OverlappingWeapon)
+		{
+			PlaySwapMontage();
+			Combat->CombatState = ECombatState::ECS_SwappingWeapons;
+			bFinishedSwapping = false;
+		}
 	}
 }
 

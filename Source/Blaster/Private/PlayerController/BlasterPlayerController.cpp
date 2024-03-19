@@ -155,6 +155,11 @@ void ABlasterPlayerController::ClientJoinMidGame_Implementation(const FName& Sta
 	}
 }
 
+void ABlasterPlayerController::ServerReportPingStatus_Implementation(bool bHighPing)
+{
+	HighPingDelegate.Broadcast(bHighPing);
+}
+
 void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 {
 	HUDInit();
@@ -575,6 +580,13 @@ void ABlasterPlayerController::CheckPing(float DeltaTime)
 			{
 				HighPingWarning();
 				PingAnimationRunningTime = 0.f;
+				// 클라의 핑이 높다고 서버에게 알려준다.
+				ServerReportPingStatus(true);
+			}
+			else
+			{
+				// 클라의 핑이 낮다고 서버에게 알려준다.
+				ServerReportPingStatus(false);
 			}
 		}
 		HighPingRunningTime = 0.f;

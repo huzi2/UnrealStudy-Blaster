@@ -31,6 +31,7 @@ protected:
 
 public:
 	FORCEINLINE float GetInitialSpeed() const { return InitialSpeed; }
+	FORCEINLINE float GetDamage() const { return Damage; }
 	FORCEINLINE void SetDamage(float WeaponDamage) { Damage = WeaponDamage; }
 	FORCEINLINE void SetUseServerSideRewind(bool bServerSideRewind) { bUseServerSideRewind = bServerSideRewind; }
 	FORCEINLINE void SetTraceStart(const FVector_NetQuantize& Start) { TraceStart = Start; }

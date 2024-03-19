@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Weapon/Weapon.h"
 #include "Blaster/Blaster.h"
+#include "Weapon/Projectile.h"
 
 ULagCompensationComponent::ULagCompensationComponent()
 	: MaxRecordTime(4.0)
@@ -33,6 +34,22 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(ABlasterCharac
 
 	// 서버 되감기 요청
 	const FServerSideRewindResult Confirm = ServerSideRewind(HitCharacter, TraceStart, HitLocation, HitTime);
+	// 서버 되감기 결과 타겟을 맞춤
+	if (Confirm.bHitConfirmed)
+	{
+		// 타겟을 맞췄으니 데미지를 준다.
+		UGameplayStatics::ApplyDamage(HitCharacter, DamageCauser->GetDamage(), Character->Controller, DamageCauser, UDamageType::StaticClass());
+	}
+}
+
+void ULagCompensationComponent::ServerProjectileScoreRequest_Implementation(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize100& InitialVelocity, double HitTime, AProjectile* DamageCauser) const
+{
+	if (!HitCharacter) return;
+	if (!DamageCauser) return;
+	if (!Character) return;
+
+	// 서버 되감기 요청
+	const FServerSideRewindResult Confirm = ProjectileServerSideRewind(HitCharacter, TraceStart, InitialVelocity, HitTime);
 	// 서버 되감기 결과 타겟을 맞춤
 	if (Confirm.bHitConfirmed)
 	{
@@ -362,10 +379,10 @@ FServerSideRewindResult ULagCompensationComponent::ProjectileServerSideRewind(AB
 {
 	FFramePackage FrameToCheck = GetFrameToCheck(HitCharacter, HitTime);
 	FrameToCheck.Character = HitCharacter;
-	return ProjectileConfirmHit(FrameToCheck, HitCharacter, TraceStart, InitialVelocity, HitTime);
+	return ProjectileConfirmHit(FrameToCheck, HitCharacter, TraceStart, InitialVelocity);
 }
 
-FServerSideRewindResult ULagCompensationComponent::ProjectileConfirmHit(const FFramePackage& Package, ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize100& InitialVelocity, double HitTime) const
+FServerSideRewindResult ULagCompensationComponent::ProjectileConfirmHit(const FFramePackage& Package, ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize100& InitialVelocity) const
 {
 	if (!HitCharacter) return FServerSideRewindResult();
 	if (!GetWorld()) return FServerSideRewindResult();

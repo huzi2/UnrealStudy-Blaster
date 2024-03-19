@@ -65,6 +65,9 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientAddAmmo(int32 AmmoToAdd);
 
+	UFUNCTION()
+	void OnPingTooHigh(bool bPingTooHigh);
+
 public:
 	FORCEINLINE float GetDamage() const { return Damage; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
@@ -116,7 +119,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	float Damage;
 
-	UPROPERTY(EditAnywhere, Category = "Server Side Rewind")
+	UPROPERTY(Replicated, EditAnywhere, Category = "Server Side Rewind")
 	bool bUseServerSideRewind;
 
 	UPROPERTY()

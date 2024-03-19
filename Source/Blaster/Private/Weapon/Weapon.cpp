@@ -75,6 +75,9 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
+
+	// 핑이 높으면 클라에서 서버 되감기를 사용하지 않으려고 하기에 해당 변수를 복제함. 로컬 클라만 알면된다.
+	DOREPLIFETIME_CONDITION(AWeapon, bUseServerSideRewind, COND_OwnerOnly);
 }
 
 void AWeapon::OnRep_Owner()
@@ -168,6 +171,13 @@ void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
 	}
 
 	SetHUDAmmo();
+}
+
+void AWeapon::OnPingTooHigh(bool bPingTooHigh)
+{
+	// 핑이 너무 높으면 서버 되감기를 사용하지 않는다.
+	// 그 이유는 피격자가 총을 피해 숨었는데 서버 되감기로 맞아버리는 불합리함이 나타날 수 있기 때문
+	bUseServerSideRewind = !bPingTooHigh;
 }
 
 void AWeapon::SetWeaponState(EWeaponState State)
@@ -276,6 +286,10 @@ void AWeapon::CheckInit()
 	if (BlasterOwnerCharacter && !BlasterOwnerController)
 	{
 		BlasterOwnerController = Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller);
+		if (bUseServerSideRewind && BlasterOwnerController && HasAuthority() && !BlasterOwnerController->HighPingDelegate.IsBound())
+		{
+			BlasterOwnerController->HighPingDelegate.AddDynamic(this, &ThisClass::OnPingTooHigh);
+		}
 	}
 }
 
@@ -375,9 +389,14 @@ void AWeapon::OnEquippedSecondary()
 			WeaponMesh->SetEnableGravity(false);
 		}
 
-		EnableCustomDepth(true);
 		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
 		WeaponMesh->MarkRenderStateDirty();
+	}
+
+	// 무기를 교체하면 연결된 델리게이트 해제
+	if (BlasterOwnerController && HasAuthority() && BlasterOwnerController->HighPingDelegate.IsBound())
+	{
+		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);
 	}
 }
 
@@ -405,6 +424,12 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
 	WeaponMesh->MarkRenderStateDirty();
 	EnableCustomDepth(true);
+
+	// 무기를 떨어뜨리면 연결된 델리게이트 해제
+	if (BlasterOwnerController && HasAuthority() && BlasterOwnerController->HighPingDelegate.IsBound())
+	{
+		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);
+	}
 }
 
 void AWeapon::OnRep_WeaponState()

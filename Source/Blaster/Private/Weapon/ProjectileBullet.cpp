@@ -3,7 +3,9 @@
 #include "Weapon/ProjectileBullet.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "GameFramework/Character.h"
+#include "Character/BlasterCharacter.h"
+#include "PlayerController/BlasterPlayerController.h"
+#include "BlasterComponents/LagCompensationComponent.h"
 
 AProjectileBullet::AProjectileBullet()
 {
@@ -73,12 +75,28 @@ void AProjectileBullet::BeginPlay()
 
 void AProjectileBullet::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))
+	if (!OtherActor) return;
+
+	if (ABlasterCharacter* OwnerCharacter = Cast<ABlasterCharacter>(GetOwner()))
 	{
-		if (AController* OwnerController = OwnerCharacter->Controller)
+		if (ABlasterPlayerController* OwnerController = Cast<ABlasterPlayerController>(OwnerCharacter->Controller))
 		{
-			// 맞은 타겟에게 데미지를 가함
-			UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
+			// 서버는 바로 데미지 확인
+			if (OwnerCharacter->HasAuthority())
+			{
+				UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
+				Super::OnHit(HItComp, OtherActor, OtherComp, NormalImpulse, Hit);
+				return;
+			}
+			// 클라면서 서버 되감기를 사용
+			if (bUseServerSideRewind)
+			{
+				ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(OtherActor);
+				if (OwnerCharacter->IsLocallyControlled() && OwnerCharacter->GetLagCompensation() && HitCharacter)
+				{
+					OwnerCharacter->GetLagCompensation()->ServerProjectileScoreRequest(HitCharacter, TraceStart, InitialVelocity, static_cast<double>(OwnerController->GetServerTime() - OwnerController->GetSingleTripTime()), this);
+				}
+			}
 		}
 	}
 

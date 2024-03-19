@@ -78,13 +78,15 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 			}
 		}
 
+		CheckInit();
+		const bool bCauseAuthDamage = !bUseServerSideRewind || BlasterOwnerCharacter->IsLocallyControlled();
 		// 맞은 횟수만큼 한번에 데미지 계산
 		for (const auto& HitPair : HitMap)
 		{
 			if (!HitPair.Key) continue;
 
 			// 서버는 바로 데미지 확인
-			if (HasAuthority() || !bUseServerSideRewind)
+			if (HasAuthority() && bCauseAuthDamage)
 			{
 				AController* InstigatorController = HitPair.Key->GetController();
 				UGameplayStatics::ApplyDamage(HitPair.Key, Damage * HitPair.Value, InstigatorController, this, UDamageType::StaticClass());
@@ -95,8 +97,6 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 		// 서버 되감기로 높은 렉에서도 어느정도 정확한 타격 판정을 얻을 수 있다.
 		if (!HasAuthority() && bUseServerSideRewind)
 		{
-			CheckInit();
-
 			if (BlasterOwnerCharacter && BlasterOwnerCharacter->IsLocallyControlled() && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation())
 			{
 				TArray<ABlasterCharacter*> HitCharacters;

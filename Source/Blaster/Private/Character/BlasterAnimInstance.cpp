@@ -92,7 +92,7 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	// 재장전, 수류탄과 같은 상태 중에는 FABRIK, 에임오프셋 사용하지 않음
 	bUseFABRIK = BlasterCharacter->GetCombatState() == ECombatState::ECS_Unoccupied;
 	// 재장전 모션은 로컬 클라에서 렉을 방지하기 위해 즉각 시전함. 그래서 리로딩 모션을 방해하지 않기 위해 확인
-	if (BlasterCharacter->IsLocallyControlled() && BlasterCharacter->GetCombatState() != ECombatState::ECS_ThrowingGrenade)
+	if (BlasterCharacter->IsLocallyControlled() && BlasterCharacter->GetCombatState() != ECombatState::ECS_ThrowingGrenade && BlasterCharacter->GetCombatState() != ECombatState::ECS_SwappingWeapons && BlasterCharacter->IsbFinishedSwapping())
 	{
 		bUseFABRIK = !BlasterCharacter->IsLocallyReloading();
 	}

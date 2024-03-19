@@ -66,6 +66,12 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void LaunchGrenade();
 
+	UFUNCTION(BlueprintCallable)
+	void FinishSwapAttachWeapons();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishSwap();
+
 public:
 	FORCEINLINE int32 GetGrenades() const { return Grenades; }
 	FORCEINLINE bool GetLocallyReloading() const { return bLocallyReloading; }
