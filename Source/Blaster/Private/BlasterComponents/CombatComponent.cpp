@@ -114,11 +114,22 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 	}
 }
 
-void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
 {
 	// 멀티캐스트는 서버만 호출할 수 있음. 그래서 서버에서 처리
 	// 멀티캐스트를 통해 서버에서도 호출되므로 여기서 따로 또 발사를 할 필요는 없다.
 	MulticastFire(TraceHitTarget);
+}
+
+bool UCombatComponent::ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
+{
+	if (EquippedWeapon)
+	{
+		// 실제 발사딜레이와 서버로 넘어온 발사딜레이 값을 비교해서 치팅이 있었는지 확인
+		const bool bNearlyEqual = FMath::IsNearlyEqual(EquippedWeapon->GetFireDelay(), FireDelay, 0.001f);
+		return bNearlyEqual;
+	}
+	return true;
 }
 
 void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
@@ -130,9 +141,20 @@ void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& T
 	LocalFire(TraceHitTarget);
 }
 
-void UCombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets)
+void UCombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
 {
 	MulticastShotgunFire(TraceHitTargets);
+}
+
+bool UCombatComponent::ServerShotgunFire_Validate(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
+{
+	if (EquippedWeapon)
+	{
+		// 실제 발사딜레이와 서버로 넘어온 발사딜레이 값을 비교해서 치팅이 있었는지 확인
+		const bool bNearlyEqual = FMath::IsNearlyEqual(EquippedWeapon->GetFireDelay(), FireDelay, 0.001f);
+		return bNearlyEqual;
+	}
+	return true;
 }
 
 void UCombatComponent::MulticastShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets)
@@ -612,7 +634,7 @@ void UCombatComponent::FireProjectileWeapon()
 		
 		// 서버에서는 로컬 수행안함. 아래 ServerFire() -> MulticastFire()하면서 멀티캐스트에서 로컬을 이미 수행함
 		if(Character && !Character->HasAuthority()) LocalFire(HitTarget);
-		ServerFire(HitTarget);
+		ServerFire(HitTarget, EquippedWeapon->GetFireDelay());
 	}
 }
 
@@ -624,7 +646,7 @@ void UCombatComponent::FireHitScanWeapon()
 		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
 		
 		if (Character && !Character->HasAuthority()) LocalFire(HitTarget);
-		ServerFire(HitTarget);
+		ServerFire(HitTarget, EquippedWeapon->GetFireDelay());
 	}
 }
 
@@ -636,7 +658,7 @@ void UCombatComponent::FireShotgun()
 		Shotgun->ShotgunTraceEndWithScatter(HitTarget, HitTargets);
 		
 		if (Character && !Character->HasAuthority()) LocalShotgunFire(HitTargets);
-		ServerShotgunFire(HitTargets);
+		ServerShotgunFire(HitTargets, Shotgun->GetFireDelay());
 	}
 }
 
