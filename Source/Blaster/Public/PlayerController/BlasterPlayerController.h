@@ -10,6 +10,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHig
 
 class ABlasterGameMode;
 class ABlasterHUD;
+class UInputMappingContext;
+class UInputAction;
+class UReturnToMainMenu;
 /**
  * 
  */
@@ -24,6 +27,7 @@ private:
 private:
 	virtual void BeginPlay() final;
 	virtual void OnPossess(APawn* InPawn) final;
+	virtual void SetupInputComponent() final;
 	virtual void Tick(float DeltaTime) final;
 	virtual void ReceivedPlayer() final;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
@@ -75,6 +79,7 @@ private:
 	void HighPingWarning();
 	void StopHighPingWarning();
 	void CheckPing(float DeltaTime);
+	void ShowReturnToMainMenu();
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Time")
@@ -96,11 +101,23 @@ private:
 	UFUNCTION()
 	void OnRep_MatchState();
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> QuitInputAction;
+
+	UPROPERTY(EditAnywhere, Category = "HUD")
+	TSubclassOf<UUserWidget> ReturnToMainMenuWidget;
+
 	UPROPERTY()
 	TObjectPtr<ABlasterGameMode> BlasterGameMode;
 
 	UPROPERTY()
 	TObjectPtr<ABlasterHUD> BlasterHUD;
+
+	UPROPERTY()
+	TObjectPtr<UReturnToMainMenu> ReturnToMainMenu;
 
 public:
 	FHighPingDelegate HighPingDelegate;
@@ -132,4 +149,6 @@ private:
 
 	float HighPingRunningTime;
 	float PingAnimationRunningTime;
+
+	bool bReturnToMainMenuOpen;
 };

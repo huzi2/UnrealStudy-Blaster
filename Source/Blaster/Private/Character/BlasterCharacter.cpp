@@ -39,6 +39,7 @@ ABlasterCharacter::ABlasterCharacter()
 	, TurnThreshold(0.5f)
 	, bElimmed(false)
 	, bFinishedSwapping(false)
+	, bLeftGame(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -328,8 +329,10 @@ void ABlasterCharacter::OnRep_ReplicatedMovement()
 	TimeSinceLastMovementReplication = 0.f;
 }
 
-void ABlasterCharacter::MulticastElim_Implementation()
+void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 {
+	bLeftGame = bPlayerLeftGame;
+
 	// 죽음 처리 자체는 게임모드에서 서버가 처리해줌
 	// 죽으면서 수행해야하는 작업은 모든 클라가 해야되서 멀티캐스트로 함수 생성
 	bElimmed = true;
@@ -394,6 +397,24 @@ void ABlasterCharacter::MulticastElim_Implementation()
 	if (IsLocallyControlled() && Combat && Combat->bAiming && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle)
 	{
 		ShowSniperScopeWidget(false);
+	}
+
+	// 캐릭터 부활을 위해 타이머 설정
+	GetWorldTimerManager().SetTimer(ElimTimer, this, &ThisClass::ElimTimerFinished, ElimDelay);
+}
+
+void ABlasterCharacter::ServerLeaveGame_Implementation()
+{
+	if (!GetWorld()) return;
+
+	PollInit();
+
+	if (!BlasterPlayerState) return;
+
+	// 서버의 게임모드에 플레이어 나감 처리 요청
+	if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
+	{
+		BlasterGameMode->PlayerLeftGame(BlasterPlayerState);
 	}
 }
 
@@ -614,17 +635,14 @@ void ABlasterCharacter::PlaySwapMontage()
 	}
 }
 
-void ABlasterCharacter::Elim()
+void ABlasterCharacter::Elim(bool bPlayerLeftGame)
 {
 	// 캐릭터가 죽는 처리는 서버에서 행한다.
 	// 무기를 떨어뜨리는 처리
 	DropOrDestroyWeapons();
 
 	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
-	MulticastElim();
-
-	// 캐릭터 부활을 위해 타이머 설정
-	GetWorldTimerManager().SetTimer(ElimTimer, this, &ThisClass::ElimTimerFinished, ElimDelay);
+	MulticastElim(bPlayerLeftGame);
 }
 
 void ABlasterCharacter::UpdateHUDHealth()
@@ -987,13 +1005,23 @@ void ABlasterCharacter::ElimTimerFinished()
 	// 게임모드에서 캐릭터 부활 요청. 게임모드는 서버에만 존재해서 서버에서만 처리될 것
 	if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
 	{
-		BlasterGameMode->RequestRespawn(this, Controller);
+		// 게임을 나가지 않은 경우에만 리스폰
+		if (!bLeftGame)
+		{
+			BlasterGameMode->RequestRespawn(this, Controller);
+		}
 	}
 
 	// 머리 위에 로봇 효과 제거
 	if (ElimBotComponent)
 	{
 		ElimBotComponent->DestroyComponent();
+	}
+
+	// 게임을 나갔다면 나갔다고 브로드캐스트
+	if (bLeftGame && IsLocallyControlled())
+	{
+		OnLeftGame.Broadcast();
 	}
 }
 

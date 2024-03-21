@@ -98,8 +98,7 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 			AttackerPlayerState->AddToScore(1.f);
 			
 			// 최고 점수 갱신
-			ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
-			if (BlasterGameState)
+			if (ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>())
 			{
 				BlasterGameState->UpdateTopScore(AttackerPlayerState);
 			}
@@ -112,7 +111,7 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 
 	if (ElimmedCharacter)
 	{
-		ElimmedCharacter->Elim();
+		ElimmedCharacter->Elim(false);
 	}
 }
 
@@ -134,5 +133,25 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 		const int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 
 		RestartPlayerAtPlayerStart(ElimmedController, PlayerStarts[Selection]);
+	}
+}
+
+void ABlasterGameMode::PlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
+{
+	if (!PlayerLeaving) return;
+
+	// 나간 사람이 최고 득점자 중 하나라면 제거
+	if (ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>())
+	{
+		if (BlasterGameState->GetTopScoringPlayers().Contains(PlayerLeaving))
+		{
+			BlasterGameState->GetTopScoringPlayers().Remove(PlayerLeaving);
+		}
+	}
+
+	// 캐릭터를 죽음 처리
+	if (ABlasterCharacter* CharacterLeaving = Cast<ABlasterCharacter>(PlayerLeaving->GetPawn()))
+	{
+		CharacterLeaving->Elim(true);
 	}
 }

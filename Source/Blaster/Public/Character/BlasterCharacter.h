@@ -25,6 +25,8 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLeftGame);
+
 UCLASS()
 class BLASTER_API ABlasterCharacter : public ACharacter, public IInteractWithCrosshairsInterface
 {
@@ -45,10 +47,13 @@ private:
 
 public:
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastElim();
+	void MulticastElim(bool bPlayerLeftGame);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void ShowSniperScopeWidget(bool bShowScope);
+
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveGame();
 
 private:
 	UFUNCTION(Server, Reliable)
@@ -97,7 +102,7 @@ public:
 	void PlayElimMontage();
 	void PlayThrowGrenadeMontage();
 	void PlaySwapMontage();
-	void Elim();
+	void Elim(bool bPlayerLeftGame);
 	void UpdateHUDHealth();
 	void UpdateHUDShield();
 	void SpawnDefaultWeapon();
@@ -330,6 +335,9 @@ private:
 	UPROPERTY()
 	TObjectPtr<ABlasterPlayerState> BlasterPlayerState;
 
+public:
+	FOnLeftGame OnLeftGame;
+
 private:
 	float AO_Yaw;
 	float InterpAO_Yaw;
@@ -350,4 +358,6 @@ private:
 	FOnTimelineFloat DissolveTrack;
 	
 	bool bFinishedSwapping;
+
+	bool bLeftGame;
 };

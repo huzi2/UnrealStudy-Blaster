@@ -22,7 +22,7 @@ private:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
 
 public:
-	FORCEINLINE const TArray<ABlasterPlayerState*>& GetTopScoringPlayers() const { return TopScoringPlayers; }
+	FORCEINLINE TArray<ABlasterPlayerState*>& GetTopScoringPlayers() { return TopScoringPlayers; }
 
 	void UpdateTopScore(ABlasterPlayerState* ScoringPlayer);
 

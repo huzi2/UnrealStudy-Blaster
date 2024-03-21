@@ -14,6 +14,11 @@
 #include "GameState/BlasterGameState.h"
 #include "PlayerState/BlasterPlayerState.h"
 #include "Components/Image.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputMappingContext.h"
+#include "InputActionValue.h"
+#include "HUD/ReturnToMainMenu.h"
 
 ABlasterPlayerController::ABlasterPlayerController()
 	: TimeSyncFrequency(5.f)
@@ -27,12 +32,18 @@ ABlasterPlayerController::ABlasterPlayerController()
 	, bInitializeCharacterOverlay(false)
 	, HighPingRunningTime(0.f)
 	, PingAnimationRunningTime(0.f)
+	, bReturnToMainMenuOpen(false)
 {
 }
 
 void ABlasterPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+	{
+		Subsystem->AddMappingContext(DefaultInputMappingContext, 0);
+	}
 
 	HUDInit();
 
@@ -57,6 +68,16 @@ void ABlasterPlayerController::OnPossess(APawn* InPawn)
 	{
 		SetHUDHealth(BlasterCharacter->GetHealth(), BlasterCharacter->GetMaxHealth());
 		SetHUDShield(BlasterCharacter->GetShield(), BlasterCharacter->GetMaxShield());
+	}
+}
+
+void ABlasterPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+
+	if (UEnhancedInputComponent* Input = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		Input->BindAction(QuitInputAction, ETriggerEvent::Started, this, &ThisClass::ShowReturnToMainMenu);
 	}
 }
 
@@ -600,6 +621,23 @@ void ABlasterPlayerController::CheckPing(float DeltaTime)
 		{
 			StopHighPingWarning();
 		}
+	}
+}
+
+void ABlasterPlayerController::ShowReturnToMainMenu()
+{
+	if (!ReturnToMainMenuWidget) return;
+
+	if (!ReturnToMainMenu)
+	{
+		ReturnToMainMenu = CreateWidget<UReturnToMainMenu>(this, ReturnToMainMenuWidget);
+	}
+
+	if (ReturnToMainMenu)
+	{
+		bReturnToMainMenuOpen = !bReturnToMainMenuOpen;
+
+		bReturnToMainMenuOpen ? ReturnToMainMenu->MenuSetup() : ReturnToMainMenu->MenuTearDown();
 	}
 }
 
