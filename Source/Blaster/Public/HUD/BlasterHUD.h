@@ -8,6 +8,7 @@
 
 class UCharacterOverlay;
 class UAnnouncement;
+class UElimAnnouncement;
 
 USTRUCT(BlueprintType)
 struct FHUDPackage
@@ -55,8 +56,10 @@ public:
 
 	void AddCharacterOverlay();
 	void AddAnnouncement();
+	void AddElimAnnouncement(const FString& AttackerName, const FString& VictimName);
 
 private:
+	void PollInit();
 	void DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread, const FLinearColor& CrosshairColor);
 
 private:
@@ -68,6 +71,12 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Announcements")
 	TSubclassOf<UUserWidget> AnnouncementClass;
+
+	UPROPERTY(EditAnywhere, Category = "Announcements")
+	TSubclassOf<UElimAnnouncement> ElimAnnouncementClass;
+
+	UPROPERTY()
+	APlayerController* OwningPlayer;
 
 	UPROPERTY()
 	TObjectPtr<UCharacterOverlay> CharacterOverlay;

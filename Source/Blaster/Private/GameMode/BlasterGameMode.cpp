@@ -95,17 +95,58 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 		ABlasterPlayerState* VictimPlayerState = Cast<ABlasterPlayerState>(VictimController->PlayerState);
 		if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState)
 		{
-			AttackerPlayerState->AddToScore(1.f);
-			
-			// 최고 점수 갱신
 			if (ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>())
 			{
+				// 계산 전에 점수를 리드하고 있는 플레이어들을 가져온다.
+				TArray<ABlasterPlayerState*> PlayerCurrentlyInTheLead;
+				for (ABlasterPlayerState* LeadPlayer : BlasterGameState->GetTopScoringPlayers())
+				{
+					PlayerCurrentlyInTheLead.Add(LeadPlayer);
+				}
+
+				AttackerPlayerState->AddToScore(1.f);
 				BlasterGameState->UpdateTopScore(AttackerPlayerState);
+
+				// 점수 계산 후에 공격자가 점수를 리드하고 있다면 왕관을 준다.
+				if (BlasterGameState->GetTopScoringPlayers().Contains(AttackerPlayerState))
+				{
+					if (ABlasterCharacter* Leader = Cast<ABlasterCharacter>(AttackerPlayerState->GetPawn()))
+					{
+						Leader->MulticastGainedTheLead();
+					}
+				}
+
+				// 점수 계산 후에 리드를 유지하고 있는 지 확인해서 아니라면 왕관을 빼앗음
+				for (ABlasterPlayerState* LeadPlayer : PlayerCurrentlyInTheLead)
+				{
+					if (!BlasterGameState->GetTopScoringPlayers().Contains(LeadPlayer))
+					{
+						if (ABlasterCharacter* Loser = Cast<ABlasterCharacter>(LeadPlayer->GetPawn()))
+						{
+							Loser->MulticastLostTheLead();
+						}
+					}
+				}
 			}
 		}
 		if (VictimPlayerState)
 		{
 			VictimPlayerState->AddToDefeats(1);
+		}
+
+		// 모든 유저들에게 캐릭터 처치 메시지를 띄움
+		if (UWorld* World = GetWorld())
+		{
+			if (AttackerPlayerState && VictimPlayerState)
+			{
+				for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+				{
+					if (ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It))
+					{
+						BlasterPlayerController->BroadcastElim(AttackerPlayerState, VictimPlayerState);
+					}
+				}
+			}
 		}
 	}
 

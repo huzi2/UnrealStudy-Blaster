@@ -88,7 +88,7 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 			// 서버는 바로 데미지 확인
 			if (HasAuthority() && bCauseAuthDamage)
 			{
-				AController* InstigatorController = HitPair.Key->GetController();
+				AController* InstigatorController = BlasterOwnerCharacter->GetController();
 				UGameplayStatics::ApplyDamage(HitPair.Key, Damage * HitPair.Value, InstigatorController, this, UDamageType::StaticClass());
 			}
 		}

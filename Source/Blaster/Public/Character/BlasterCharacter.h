@@ -21,6 +21,8 @@ class USoundCue;
 class ABlasterPlayerState;
 class UBoxComponent;
 class ULagCompensationComponent;
+class UNiagaraSystem;
+class UNiagaraComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
@@ -54,6 +56,13 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void ServerLeaveGame();
+
+	// 선두권을 차지해서 왕관을 얻는건 모든 클라와 서버가 다봐야하니까 멀티캐스트
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastGainedTheLead();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastLostTheLead();
 
 private:
 	UFUNCTION(Server, Reliable)
@@ -228,6 +237,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Elim")
 	TObjectPtr<USoundCue> ElimBotSound;
 
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UNiagaraSystem> CrownSystem;
+
 	// 쿨다운 상태일 때 특정 입력을 막기 위함
 	UPROPERTY(Replicated)
 	bool bDisableGameplay;
@@ -334,6 +346,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ABlasterPlayerState> BlasterPlayerState;
+
+	UPROPERTY()
+	TObjectPtr<UNiagaraComponent> CrownComponent;
 
 public:
 	FOnLeftGame OnLeftGame;

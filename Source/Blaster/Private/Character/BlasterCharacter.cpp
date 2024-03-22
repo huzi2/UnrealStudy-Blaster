@@ -23,6 +23,9 @@
 #include "BlasterComponents/BuffComponent.h"
 #include "BlasterComponents/LagCompensationComponent.h"
 #include "Components/BoxComponent.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "GameState/BlasterGameState.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -399,6 +402,11 @@ void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 		ShowSniperScopeWidget(false);
 	}
 
+	if (CrownComponent)
+	{
+		CrownComponent->DestroyComponent();
+	}
+
 	// 캐릭터 부활을 위해 타이머 설정
 	GetWorldTimerManager().SetTimer(ElimTimer, this, &ThisClass::ElimTimerFinished, ElimDelay);
 }
@@ -415,6 +423,29 @@ void ABlasterCharacter::ServerLeaveGame_Implementation()
 	if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
 	{
 		BlasterGameMode->PlayerLeftGame(BlasterPlayerState);
+	}
+}
+
+void ABlasterCharacter::MulticastGainedTheLead_Implementation()
+{
+	if (!CrownSystem) return;
+
+	if (!CrownComponent)
+	{
+		CrownComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(CrownSystem, GetCapsuleComponent(), FName(), GetActorLocation() + FVector(0.f, 0.f, 110.f), GetActorRotation(), EAttachLocation::KeepWorldPosition, false);
+	}
+
+	if (CrownComponent)
+	{
+		CrownComponent->Activate();
+	}
+}
+
+void ABlasterCharacter::MulticastLostTheLead_Implementation()
+{
+	if (CrownComponent)
+	{
+		CrownComponent->DestroyComponent();
 	}
 }
 
@@ -1046,6 +1077,15 @@ void ABlasterCharacter::PollInit()
 		{
 			BlasterPlayerState->AddToScore(0.f);
 			BlasterPlayerState->AddToDefeats(0);
+		}
+
+		// 리스폰했을 때 점수가 리드상태였다면 왕관을 준다.
+		if (ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)))
+		{
+			if (BlasterGameState->GetTopScoringPlayers().Contains(BlasterPlayerState))
+			{
+				MulticastGainedTheLead();
+			}
 		}
 	}
 

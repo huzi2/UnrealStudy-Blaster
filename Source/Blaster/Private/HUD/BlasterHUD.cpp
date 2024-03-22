@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "HUD/CharacterOverlay.h"
 #include "HUD/Announcement.h"
+#include "HUD/ElimAnnouncement.h"
 
 ABlasterHUD::ABlasterHUD()
 	: CrosshairSpreadMax(16.0)
@@ -34,22 +35,48 @@ void ABlasterHUD::AddCharacterOverlay()
 {
 	if (!CharacterOverlayClass) return;
 
-	APlayerController * PlayerController = GetOwningPlayerController();
-	if (!PlayerController) return;
+	PollInit();
+	if (!OwningPlayer) return;
 
-	CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
-	CharacterOverlay->AddToViewport();
+	if (CharacterOverlay = CreateWidget<UCharacterOverlay>(OwningPlayer, CharacterOverlayClass))
+	{
+		CharacterOverlay->AddToViewport();
+	}
 }
 
 void ABlasterHUD::AddAnnouncement()
 {
 	if (!AnnouncementClass) return;
 
-	APlayerController* PlayerController = GetOwningPlayerController();
-	if (!PlayerController) return;
+	PollInit();
+	if (!OwningPlayer) return;
 
-	Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
-	Announcement->AddToViewport();
+	if (Announcement = CreateWidget<UAnnouncement>(OwningPlayer, AnnouncementClass))
+	{
+		Announcement->AddToViewport();
+	}
+}
+
+void ABlasterHUD::AddElimAnnouncement(const FString& AttackerName, const FString& VictimName)
+{
+	if (!ElimAnnouncementClass) return;
+
+	PollInit();
+	if (!OwningPlayer) return;
+
+	if (UElimAnnouncement* ElimAnnouncement = CreateWidget<UElimAnnouncement>(OwningPlayer, ElimAnnouncementClass))
+	{
+		ElimAnnouncement->SetElimAnnouncementText(AttackerName, VictimName);
+		ElimAnnouncement->AddToViewport();
+	}
+}
+
+void ABlasterHUD::PollInit()
+{
+	if (!OwningPlayer)
+	{
+		OwningPlayer = GetOwningPlayerController();
+	}
 }
 
 void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCenter, const FVector2D& Spread, const FLinearColor& CrosshairColor)

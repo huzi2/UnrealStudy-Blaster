@@ -54,6 +54,9 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerReportPingStatus(bool bHighPing);
 
+	UFUNCTION(Client, Reliable)
+	void ClientElimAnnouncement(APlayerState* Attacker, APlayerState* Victim);
+
 public:
 	FORCEINLINE float GetSingleTripTime() const { return SingleTripTime; }
 
@@ -68,6 +71,7 @@ public:
 	void SetHUDGrenades(int32 Grenades);
 	float GetServerTime() const;
 	void OnMatchStateSet(const FName& State);
+	void BroadcastElim(APlayerState* Attacker, APlayerState* Victim);
 
 private:
 	void HUDInit();

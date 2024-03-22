@@ -32,7 +32,7 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			{
 				if (BlasterCharacter)
 				{
-					AController* InstigatorController = BlasterCharacter->GetController();
+					AController* InstigatorController = BlasterOwnerCharacter->GetController();
 					UGameplayStatics::ApplyDamage(BlasterCharacter, Damage, InstigatorController, this, UDamageType::StaticClass());
 				}
 			}

@@ -181,18 +181,49 @@ void ABlasterPlayerController::ServerReportPingStatus_Implementation(bool bHighP
 	HighPingDelegate.Broadcast(bHighPing);
 }
 
+void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerState* Attacker, APlayerState* Victim)
+{
+	APlayerState* Self = GetPlayerState<APlayerState>();
+	if (Attacker && Victim && Self)
+	{
+		HUDInit();
+
+		if (BlasterHUD)
+		{
+			// 자신이 누군가를 제거
+			if (Attacker == Self && Victim != Self)
+			{
+				BlasterHUD->AddElimAnnouncement(TEXT("You"), Victim->GetPlayerName());
+			}
+			// 누군가가 자신을 제거
+			else if (Victim == Self && Attacker != Self)
+			{
+				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), TEXT("you"));
+			}
+			// 본인이 자살
+			else if(Attacker == Self && Victim == Self)
+			{
+				BlasterHUD->AddElimAnnouncement(TEXT("You"), TEXT("yourself"));
+			}
+			// 누군가가 자살
+			else if(Attacker == Victim && Attacker != Self)
+			{
+				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), TEXT("themselves"));
+			}
+			else
+			{
+				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), Victim->GetPlayerName());
+			}
+		}
+	}
+}
+
 void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 {
 	HUDInit();
 
 	if (!BlasterHUD || !BlasterHUD->GetCharacterOverlay())
 	{
-		if (!GetHUD())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("HUD not"));
-		}
-
-		UE_LOG(LogTemp, Warning, TEXT("BlasterHUD not"));
 		bInitializeCharacterOverlay = true;
 		HUDHealth = Health;
 		HUDMaxHealth = MaxHealth;
@@ -375,6 +406,13 @@ void ABlasterPlayerController::OnMatchStateSet(const FName& State)
 	{
 		HandleCooldown();
 	}
+}
+
+void ABlasterPlayerController::BroadcastElim(APlayerState* Attacker, APlayerState* Victim)
+{
+	// 이 함수는 게임모드를 통해 서버에 호출되었음
+	// 클라이언트에게도 알려주기 위해 클라이언트 RPC 함수를 호출
+	ClientElimAnnouncement(Attacker, Victim);
 }
 
 void ABlasterPlayerController::HUDInit()

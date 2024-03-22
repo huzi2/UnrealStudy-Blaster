@@ -366,13 +366,14 @@ void ULagCompensationComponent::EnableCharacterMeshCollision(ABlasterCharacter* 
 
 void ULagCompensationComponent::DrawBox(const FHitResult& ConfirmHitResult, const FColor& Color) const
 {
-	if (ConfirmHitResult.Component.IsValid())
+	// 디버깅이 필요할 때 주석 해제
+	/*if (ConfirmHitResult.Component.IsValid())
 	{
 		if (UBoxComponent* Box = Cast<UBoxComponent>(ConfirmHitResult.Component))
 		{
 			DrawDebugBox(GetWorld(), Box->GetComponentLocation(), Box->GetScaledBoxExtent(), FQuat(Box->GetComponentRotation()), Color, false, 8.f);
 		}
-	}
+	}*/
 }
 
 FServerSideRewindResult ULagCompensationComponent::ProjectileServerSideRewind(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize100& InitialVelocity, double HitTime) const
@@ -428,8 +429,8 @@ FServerSideRewindResult ULagCompensationComponent::ProjectileConfirmHit(const FF
 	PathParams.ActorsToIgnore.Add(GetOwner());
 
 	// 발사체 예측을 디버그로 표시
-	PathParams.DrawDebugTime = 5.f;
-	PathParams.DrawDebugType = EDrawDebugTrace::ForDuration;
+	/*PathParams.DrawDebugTime = 5.f;
+	PathParams.DrawDebugType = EDrawDebugTrace::ForDuration;*/
 
 	// 발사체 예측 수행
 	FPredictProjectilePathResult PathResult;
