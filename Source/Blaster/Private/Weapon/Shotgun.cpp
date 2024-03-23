@@ -56,6 +56,7 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 		const FVector Start = SocketTransform.GetLocation();
 
 		TMap<ABlasterCharacter*, uint32> HitMap;
+		TMap<ABlasterCharacter*, uint32> HeadShotHitMap;
 		for (const FVector_NetQuantize& HitTarget : HitTargets)
 		{
 			FHitResult FireHit;
@@ -64,7 +65,16 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 			// 타겟별로 몇번 맞았는지 확인. 여기서 반복문으로 데미지를 주는것보다는 횟수를 확인하고 한번에 데미지를 주는게 패킷상으로 괜찮다.
 			if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor()))
 			{
-				HitMap.Contains(BlasterCharacter) ? ++HitMap[BlasterCharacter] : HitMap.Emplace(BlasterCharacter, 1);
+				// 헤드샷 확인
+				const bool bHeadShot = FireHit.BoneName.ToString() == TEXT("head");
+				if (bHeadShot)
+				{
+					HeadShotHitMap.Contains(BlasterCharacter) ? ++HeadShotHitMap[BlasterCharacter] : HeadShotHitMap.Emplace(BlasterCharacter, 1);
+				}
+				else
+				{
+					HitMap.Contains(BlasterCharacter) ? ++HitMap[BlasterCharacter] : HitMap.Emplace(BlasterCharacter, 1);
+				}
 			}
 
 			if (ImpactParticles)
@@ -78,18 +88,35 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 			}
 		}
 
+		// 서버는 바로 데미지 확인
 		CheckInit();
 		const bool bCauseAuthDamage = !bUseServerSideRewind || BlasterOwnerCharacter->IsLocallyControlled();
-		// 맞은 횟수만큼 한번에 데미지 계산
-		for (const auto& HitPair : HitMap)
+		if (HasAuthority() && bCauseAuthDamage)
 		{
-			if (!HitPair.Key) continue;
+			// 맞은 횟수만큼 한번에 데미지 계산
+			TMap<ABlasterCharacter*, float> DamageMap;
 
-			// 서버는 바로 데미지 확인
-			if (HasAuthority() && bCauseAuthDamage)
+			for (const auto& HitPair : HitMap)
 			{
-				AController* InstigatorController = BlasterOwnerCharacter->GetController();
-				UGameplayStatics::ApplyDamage(HitPair.Key, Damage * HitPair.Value, InstigatorController, this, UDamageType::StaticClass());
+				if (!HitPair.Key) continue;
+
+				DamageMap.Emplace(HitPair.Key, HitPair.Value * Damage);
+			}
+
+			for (const auto& HedShotHitPair : HeadShotHitMap)
+			{
+				if (!HedShotHitPair.Key) continue;
+
+				DamageMap.Contains(HedShotHitPair.Key) ? DamageMap[HedShotHitPair.Key] += HedShotHitPair.Value * HeadShotDamage : DamageMap.Emplace(HedShotHitPair.Key, HedShotHitPair.Value * HeadShotDamage);
+			}
+
+			// 샷건에 맞은 캐릭터들에게 계산된 데미지를 입힘
+			AController* InstigatorController = BlasterOwnerCharacter->GetController();
+			for (const auto& DamagePair : DamageMap)
+			{
+				if (!DamagePair.Key) continue;
+
+				UGameplayStatics::ApplyDamage(DamagePair.Key, DamagePair.Value, InstigatorController, this, UDamageType::StaticClass());
 			}
 		}
 

@@ -82,9 +82,12 @@ void AProjectileBullet::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, 
 		if (ABlasterPlayerController* OwnerController = Cast<ABlasterPlayerController>(OwnerCharacter->Controller))
 		{
 			// 서버는 바로 데미지 확인
-			if (OwnerCharacter->HasAuthority())
+			if (OwnerCharacter->HasAuthority() && !bUseServerSideRewind)
 			{
-				UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
+				// 헤드샷 확인
+				const float DamageToCause = Hit.BoneName.ToString() == TEXT("head") ? HeadShotDamage : Damage;
+
+				UGameplayStatics::ApplyDamage(OtherActor, DamageToCause, OwnerController, this, UDamageType::StaticClass());
 				Super::OnHit(HItComp, OtherActor, OtherComp, NormalImpulse, Hit);
 				return;
 			}

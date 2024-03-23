@@ -49,6 +49,10 @@ private:
 private:
 	virtual void DrawHUD() final;
 
+private:
+	UFUNCTION()
+	void ElimAnnouncementTimerFinished(UElimAnnouncement* MsgToRemove);
+
 public:
 	FORCEINLINE UCharacterOverlay* GetCharacterOverlay() const { return CharacterOverlay; }
 	FORCEINLINE UAnnouncement* GetAnnouncement() const { return Announcement; }
@@ -75,6 +79,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Announcements")
 	TSubclassOf<UElimAnnouncement> ElimAnnouncementClass;
 
+	UPROPERTY(EditAnywhere, Category = "Announcements")
+	float ElimAnnouncementTime;
+
 	UPROPERTY()
 	APlayerController* OwningPlayer;
 
@@ -83,6 +90,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UAnnouncement> Announcement;
+
+	UPROPERTY()
+	TArray<UElimAnnouncement*> ElimMessages;
 
 private:
 	FHUDPackage HUDPackage;

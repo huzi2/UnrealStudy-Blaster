@@ -5,9 +5,14 @@
 #include "HUD/CharacterOverlay.h"
 #include "HUD/Announcement.h"
 #include "HUD/ElimAnnouncement.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/HorizontalBox.h"
+#include "Components/CanvasPanelSlot.h"
 
 ABlasterHUD::ABlasterHUD()
 	: CrosshairSpreadMax(16.0)
+	//, ElimAnnouncementTime(2.5f)
+	, ElimAnnouncementTime(50.f)
 {
 }
 
@@ -29,6 +34,13 @@ void ABlasterHUD::DrawHUD()
 		DrawCrosshair(HUDPackage.CrosshairsTop, ViewportCenter, { 0.f, -SpreadScaled }, HUDPackage.CrosshairsColor);
 		DrawCrosshair(HUDPackage.CrosshairsBottom, ViewportCenter, { 0.f, SpreadScaled }, HUDPackage.CrosshairsColor);
 	}
+}
+
+void ABlasterHUD::ElimAnnouncementTimerFinished(UElimAnnouncement* MsgToRemove)
+{
+	if (!MsgToRemove) return;
+
+	MsgToRemove->RemoveFromParent();
 }
 
 void ABlasterHUD::AddCharacterOverlay()
@@ -68,6 +80,29 @@ void ABlasterHUD::AddElimAnnouncement(const FString& AttackerName, const FString
 	{
 		ElimAnnouncement->SetElimAnnouncementText(AttackerName, VictimName);
 		ElimAnnouncement->AddToViewport();
+
+		// 새 메시지를 위해 이전 메시지들을 위로 올린다.
+		for (UElimAnnouncement* Msg : ElimMessages)
+		{
+			if (Msg && Msg->GetAnnouncementBox())
+			{
+				if (UCanvasPanelSlot* CanvasSlot = UWidgetLayoutLibrary::SlotAsCanvasSlot(Msg->GetAnnouncementBox()))
+				{
+					const FVector2D Position = CanvasSlot->GetPosition();
+					const FVector2D NewPosition(Position.X, Position.Y - CanvasSlot->GetSize().Y);
+					CanvasSlot->SetPosition(NewPosition);
+				}
+			}
+		}
+
+		ElimMessages.Add(ElimAnnouncement);
+
+		// 처치 메시지가 일정 시간 뒤에 삭제되도록 타이머 설정
+		FTimerDelegate ElimMsgDelegate;
+		ElimMsgDelegate.BindUFunction(this, TEXT("ElimAnnouncementTimerFinished"), ElimAnnouncement);
+
+		FTimerHandle ElimMsgTimer;
+		GetWorldTimerManager().SetTimer(ElimMsgTimer, ElimMsgDelegate, ElimAnnouncementTime, false);
 	}
 }
 

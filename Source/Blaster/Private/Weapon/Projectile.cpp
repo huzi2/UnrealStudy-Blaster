@@ -15,8 +15,9 @@ AProjectile::AProjectile()
 	, DamageInnerRadius(200.f)
 	, DamageOuterRadius(500.f)
 	, Damage(20.f)
+	, HeadShotDamage(40.f)
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	// 생성은 서버에서만 진행하고 클라들은 복사본만 얻어옴
 	bReplicates = true;
 	// 이거 안하니까 이동은 복사안되던데 일단 했음
@@ -47,12 +48,6 @@ void AProjectile::BeginPlay()
 	{
 		CollisionBox->OnComponentHit.AddDynamic(this, &ThisClass::OnHit);
 	}
-}
-
-void AProjectile::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 
 void AProjectile::Destroyed()

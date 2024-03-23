@@ -17,6 +17,7 @@ class BLASTER_API UElimAnnouncement : public UUserWidget
 	GENERATED_BODY()
 	
 public:
+	FORCEINLINE UHorizontalBox* GetAnnouncementBox() const { return AnnouncementBox; }
 	void SetElimAnnouncementText(const FString& AttackerName, const FString& VictimName);
 
 private:

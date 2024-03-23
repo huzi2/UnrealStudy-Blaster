@@ -22,7 +22,6 @@ protected:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
 
 protected:
@@ -32,7 +31,9 @@ protected:
 public:
 	FORCEINLINE float GetInitialSpeed() const { return InitialSpeed; }
 	FORCEINLINE float GetDamage() const { return Damage; }
+	FORCEINLINE float GetHeadShotDamage() const { return HeadShotDamage; }
 	FORCEINLINE void SetDamage(float WeaponDamage) { Damage = WeaponDamage; }
+	FORCEINLINE void SetHeadShotDamage(float WeaponHeadShotDamage) { HeadShotDamage = WeaponHeadShotDamage; }
 	FORCEINLINE void SetUseServerSideRewind(bool bServerSideRewind) { bUseServerSideRewind = bServerSideRewind; }
 	FORCEINLINE void SetTraceStart(const FVector_NetQuantize& Start) { TraceStart = Start; }
 	FORCEINLINE void SetInitialVelocity(const FVector_NetQuantize100& Velocity) { InitialVelocity = Velocity; }
@@ -91,6 +92,7 @@ private:
 
 protected:
 	float Damage;
+	float HeadShotDamage;
 
 	// 서버 되감기로 발사체 예측에 사용되는 변수들
 	FVector_NetQuantize TraceStart;

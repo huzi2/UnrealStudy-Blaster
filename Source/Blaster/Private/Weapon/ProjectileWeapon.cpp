@@ -52,6 +52,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 				SpawnedProjectile = World->SpawnActor<AProjectile>(ProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
 				SpawnedProjectile->SetUseServerSideRewind(false);
 				SpawnedProjectile->SetDamage(Damage);
+				SpawnedProjectile->SetHeadShotDamage(HeadShotDamage);
 			}
 			// 서버가 아닌 다른 클라가 발사한걸 서버가 보는 경우는 레플리케이트하지 않는 발사체를 발사하고 서버 되감기 사용
 			else
@@ -72,6 +73,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 				SpawnedProjectile->SetTraceStart(SocketTransform.GetLocation());
 				SpawnedProjectile->SetInitialVelocity(SpawnedProjectile->GetActorForwardVector() * SpawnedProjectile->GetInitialSpeed());
 				SpawnedProjectile->SetDamage(Damage);
+				SpawnedProjectile->SetHeadShotDamage(HeadShotDamage);
 			}
 			// 다른 클라가 발사한 경우, 레플리케이트도, 서버 되감기도 사용하지 않는다.
 			else
@@ -90,6 +92,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 			SpawnedProjectile = World->SpawnActor<AProjectile>(ProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
 			SpawnedProjectile->SetUseServerSideRewind(false);
 			SpawnedProjectile->SetDamage(Damage);
+			SpawnedProjectile->SetHeadShotDamage(HeadShotDamage);
 		}
 	}
 }

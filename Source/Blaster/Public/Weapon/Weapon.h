@@ -70,6 +70,7 @@ private:
 
 public:
 	FORCEINLINE float GetDamage() const { return Damage; }
+	FORCEINLINE float GetHeadShotDamage() const { return HeadShotDamage; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
 	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
@@ -118,6 +119,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	float Damage;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	float HeadShotDamage;
 
 	UPROPERTY(Replicated, EditAnywhere, Category = "Server Side Rewind")
 	bool bUseServerSideRewind;

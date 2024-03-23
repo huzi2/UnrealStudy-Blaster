@@ -34,7 +34,7 @@ void UReturnToMainMenu::MenuSetup()
 
 	AddToViewport();
 	SetVisibility(ESlateVisibility::Visible);
-	bIsFocusable = true;
+	SetIsFocusable(true);
 
 	if (PlayerController)
 	{

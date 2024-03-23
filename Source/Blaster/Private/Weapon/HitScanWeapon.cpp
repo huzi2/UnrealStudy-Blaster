@@ -30,10 +30,12 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			// 서버는 바로 데미지 확인
 			if (HasAuthority() && bCauseAuthDamage)
 			{
+				// 헤드샷 데미지를 FireHit를 통해서 확인
+				const float DamageToCause = FireHit.BoneName.ToString() == TEXT("head") ? HeadShotDamage : Damage;
 				if (BlasterCharacter)
 				{
 					AController* InstigatorController = BlasterOwnerCharacter->GetController();
-					UGameplayStatics::ApplyDamage(BlasterCharacter, Damage, InstigatorController, this, UDamageType::StaticClass());
+					UGameplayStatics::ApplyDamage(BlasterCharacter, DamageToCause, InstigatorController, this, UDamageType::StaticClass());
 				}
 			}
 			// 클라의 경우 서버 되감기 기능을 사용한다면 서버 되감기로 충돌 판정 확인 후 데미지
@@ -80,7 +82,15 @@ void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& Hi
 	const FVector End = TraceStart + (HitTarget - TraceStart) * 1.25;
 	World->LineTraceSingleByChannel(OutHit, TraceStart, End, ECollisionChannel::ECC_Visibility);
 
-	const FVector BeamEnd = OutHit.bBlockingHit ? OutHit.ImpactPoint : End;
+	FVector BeamEnd = End;
+	if (OutHit.bBlockingHit)
+	{
+		BeamEnd = OutHit.ImpactPoint;
+	}
+	else
+	{
+		OutHit.ImpactPoint = End;
+	}
 
 	if (BeamParticles)
 	{
