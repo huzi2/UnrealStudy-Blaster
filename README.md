@@ -29,6 +29,8 @@
   - 서버에서 클라이언트의 히트박스를 일정 시간동안 저장
   - 클라이언트가 사격할 때의 시간을 서버에게 보내서 서버가 해당 시간의 히트박스를 확인해서 충돌 확인
   - 클라이언트의 핑이 높아도 정확한 사격이 가능해짐
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/0aa156f7-2bcc-4024-8c50-8642d0931657)
+  - 발사체도 발사체 예측(PredictProjectilePath)을 통해서 발사체의 이동 경로를 확인 후 서버 되감기를 통해서 충돌 확인
 
 ### 게임 로직
 - 게임 모드의 매치 기능을 활용한 매치 상태 구현
@@ -69,6 +71,9 @@
   - 체력 회복, 보호막, 이동속도, 점프높이 등 다양한 버프형 아이템 구현
   - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/70668899-bf3c-46cb-9957-5e440b1b3bce)
   - 무기 탄약 아이템
+- 헤드샷 구현
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/a466c38a-00e8-4c9c-b907-353eb8e617ba)
+  - 충돌한 히트박스를 확인해서 헤드(빨간색 박스)면 헤드샷으로 처리하도록 구현
 - 향상된 입력
 
 ### 프로그래밍
@@ -93,3 +98,7 @@
   - 조준 상태의 십자선
   - <img width="640" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/1587cfa1-95a7-44ab-9408-39a42c9cc162">
   - 저격총용 스코프 십자선(위젯 애니메이션으로 구현)
+- 처치 메시지
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/de7a62f3-b59d-4c39-ba26-32069b223675)
+  - 처치한 클라이언트와 죽은 클라이언트가 각자에게 맞는 메시지를 띄우도록 구현
+
