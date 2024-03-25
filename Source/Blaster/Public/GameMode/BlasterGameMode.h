@@ -26,7 +26,7 @@ class BLASTER_API ABlasterGameMode : public AGameMode
 {
 	GENERATED_BODY()
 	
-private:
+protected:
 	ABlasterGameMode();
 
 private:

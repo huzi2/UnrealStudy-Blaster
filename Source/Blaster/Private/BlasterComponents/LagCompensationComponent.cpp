@@ -37,8 +37,9 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(ABlasterCharac
 	// 서버 되감기 결과 타겟을 맞춤
 	if (Confirm.bHitConfirmed)
 	{
+		const float DamageToCause = Confirm.bHeadShot ? DamageCauser->GetHeadShotDamage() : DamageCauser->GetDamage();
 		// 타겟을 맞췄으니 데미지를 준다.
-		UGameplayStatics::ApplyDamage(HitCharacter, DamageCauser->GetDamage(), Character->Controller, DamageCauser, UDamageType::StaticClass());
+		UGameplayStatics::ApplyDamage(HitCharacter, DamageToCause, Character->Controller, DamageCauser, UDamageType::StaticClass());
 	}
 }
 
@@ -53,8 +54,9 @@ void ULagCompensationComponent::ServerProjectileScoreRequest_Implementation(ABla
 	// 서버 되감기 결과 타겟을 맞춤
 	if (Confirm.bHitConfirmed)
 	{
+		const float DamageToCause = Confirm.bHeadShot ? DamageCauser->GetHeadShotDamage() : DamageCauser->GetDamage();
 		// 타겟을 맞췄으니 데미지를 준다.
-		UGameplayStatics::ApplyDamage(HitCharacter, DamageCauser->GetDamage(), Character->Controller, DamageCauser, UDamageType::StaticClass());
+		UGameplayStatics::ApplyDamage(HitCharacter, DamageToCause, Character->Controller, DamageCauser, UDamageType::StaticClass());
 	}
 }
 
@@ -72,7 +74,7 @@ void ULagCompensationComponent::ServerShotgunScoreRequest_Implementation(const T
 		// 헤드샷 데미지
 		if (Confirm.HeadShots.Contains(HitCharacter))
 		{
-			TotalDamage += Confirm.HeadShots[HitCharacter] * DamageCauser->GetDamage();
+			TotalDamage += Confirm.HeadShots[HitCharacter] * DamageCauser->GetHeadShotDamage();
 		}
 		// 바디샷 데미지
 		if (Confirm.BodyShots.Contains(HitCharacter))

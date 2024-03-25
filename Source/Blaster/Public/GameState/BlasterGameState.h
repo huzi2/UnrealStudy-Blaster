@@ -23,6 +23,8 @@ private:
 
 public:
 	FORCEINLINE TArray<ABlasterPlayerState*>& GetTopScoringPlayers() { return TopScoringPlayers; }
+	FORCEINLINE TArray<ABlasterPlayerState*>& GetRedTeam() { return RedTeam; }
+	FORCEINLINE TArray<ABlasterPlayerState*>& GetBlueTeam() { return BlueTeam; }
 
 	void UpdateTopScore(ABlasterPlayerState* ScoringPlayer);
 
@@ -30,6 +32,21 @@ private:
 	UPROPERTY(Replicated)
 	TArray<ABlasterPlayerState*> TopScoringPlayers;
 
+	UPROPERTY(ReplicatedUsing = OnRep_RedTeamScore)
+	float RedTeamScore;
+
+	UFUNCTION()
+	void OnRep_RedTeamScore();
+
+	UPROPERTY(ReplicatedUsing = OnRep_BlueTeamScore)
+	float BlueTeamScore;
+
+	UFUNCTION()
+	void OnRep_BlueTeamScore();
+
 private:
 	float TopScore;
+
+	TArray<ABlasterPlayerState*> RedTeam;
+	TArray<ABlasterPlayerState*> BlueTeam;
 };
