@@ -8,6 +8,7 @@
 #include "Interfaces/InteractWithCrosshairsInterface.h"
 #include "Components/TimelineComponent.h"
 #include "BlasterTypes/CombatState.h"
+#include "BlasterTypes/Team.h"
 #include "BlasterCharacter.generated.h"
 
 class USpringArmComponent;
@@ -21,6 +22,7 @@ class USoundCue;
 class ABlasterPlayerState;
 class UBoxComponent;
 class ULagCompensationComponent;
+class ABlasterGameMode;
 class UNiagaraSystem;
 class UNiagaraComponent;
 class UInputMappingContext;
@@ -116,6 +118,7 @@ public:
 	void UpdateHUDShield();
 	void SpawnDefaultWeapon();
 	bool IsLocallyReloading() const;
+	void SetTeamColor(ETeam Team);
 
 private:
 	void MoveForward(const FInputActionValue& Value);
@@ -225,7 +228,7 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Elim")
 	TObjectPtr<UMaterialInstanceDynamic> DynamicDissolveMaterialInstance;
 
-	UPROPERTY(EditAnywhere, Category = "Elim")
+	UPROPERTY(VisibleAnywhere, Category = "Elim")
 	TObjectPtr<UMaterialInstance> DissolveMaterialInstance;
 
 	UPROPERTY(EditAnywhere, Category = "Elim")
@@ -239,6 +242,21 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<UNiagaraSystem> CrownSystem;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	TObjectPtr<UMaterialInstance> RedMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	TObjectPtr<UMaterialInstance> BlueMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	TObjectPtr<UMaterialInstance> OriginalMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	TObjectPtr<UMaterialInstance> RedDissolveMaterialInstance;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	TObjectPtr<UMaterialInstance> BlueDissolveMaterialInstance;
 
 	// 쿨다운 상태일 때 특정 입력을 막기 위함
 	UPROPERTY(Replicated)
@@ -346,6 +364,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ABlasterPlayerState> BlasterPlayerState;
+
+	UPROPERTY()
+	TObjectPtr<ABlasterGameMode> BlasterGameMode;
 
 	UPROPERTY()
 	TObjectPtr<UNiagaraComponent> CrownComponent;

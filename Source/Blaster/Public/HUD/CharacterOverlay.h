@@ -30,6 +30,9 @@ public:
 	FORCEINLINE UTextBlock* GetGrenadeText() const { return GrenadeText; }
 	FORCEINLINE UImage* GetHighPingImage() const { return HighPingImage; }
 	FORCEINLINE UWidgetAnimation* GetHighPingAnimation() const { return HighPingAnimation; }
+	FORCEINLINE UTextBlock* GetBlueTeamScore() const { return BlueTeamScore; }
+	FORCEINLINE UTextBlock* GetRedTeamScore() const { return RedTeamScore; }
+	FORCEINLINE UTextBlock* GetScoreSpacerText() const { return ScoreSpacerText; }
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -67,4 +70,13 @@ private:
 
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	TObjectPtr<UWidgetAnimation> HighPingAnimation;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> BlueTeamScore;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> RedTeamScore;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> ScoreSpacerText;
 };

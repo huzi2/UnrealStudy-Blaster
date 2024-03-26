@@ -260,7 +260,7 @@ void ABlasterCharacter::Destroyed()
 	}
 
 	// 매치 상태가 아닐 때 제거되면 무기도 같이 제거
-	ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
+	PollInit();
 	if (BlasterGameMode && BlasterGameMode->GetMatchState() != MatchState::InProgress)
 	{
 		if (Combat && Combat->EquippedWeapon)
@@ -424,7 +424,7 @@ void ABlasterCharacter::ServerLeaveGame_Implementation()
 	if (!BlasterPlayerState) return;
 
 	// 서버의 게임모드에 플레이어 나감 처리 요청
-	if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
+	if (BlasterGameMode)
 	{
 		BlasterGameMode->PlayerLeftGame(BlasterPlayerState);
 	}
@@ -474,8 +474,14 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 {
 	if (bElimmed) return;
 
+	PollInit();
+	if (!BlasterGameMode) return;
+
 	// 데미지 처리는 서버에서만 수행됨. 여기 내용들은 서버에서 실행된다.
-	float DamageToHealth = Damage;
+	// 게임모드를 통해서 아군일 경우 데미지 차단
+	float DamageToHealth = BlasterGameMode->CalculateDamage(InstigatorController, Controller, Damage);
+	if (DamageToHealth == 0.f) return;
+
 	if (Shield > 0.f)
 	{
 		if (Shield >= Damage)
@@ -503,12 +509,9 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 	{
 		if (GetWorld())
 		{
-			if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
-			{
-				ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
-				InitPlayerController();
-				BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
-			}
+			ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
+			InitPlayerController();
+			BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
 		}
 	}
 }
@@ -705,7 +708,8 @@ void ABlasterCharacter::SpawnDefaultWeapon()
 	if (!Combat) return;
 	if (bElimmed) return;
 
-	if (ABlasterGameMode* BlasterGameMode = Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this)))
+	PollInit();
+	if (BlasterGameMode)
 	{
 		if (AWeapon* StartingWeapon = GetWorld()->SpawnActor<AWeapon>(DefaultWeaponClass))
 		{
@@ -719,6 +723,47 @@ bool ABlasterCharacter::IsLocallyReloading() const
 {
 	if (!Combat) return false;
 	return Combat->GetLocallyReloading();
+}
+
+void ABlasterCharacter::SetTeamColor(ETeam Team)
+{
+	if (!GetMesh()) return;
+
+	switch (Team)
+	{
+	case ETeam::ET_NoTeam:
+		if (OriginalMaterial)
+		{
+			GetMesh()->SetMaterial(0, OriginalMaterial);
+		}
+		if (BlueDissolveMaterialInstance)
+		{
+			DissolveMaterialInstance = BlueDissolveMaterialInstance;
+		}
+		break;
+	case ETeam::ET_BlueTeam:
+		if (BlueMaterial)
+		{
+			GetMesh()->SetMaterial(0, BlueMaterial);
+		}
+		if (BlueDissolveMaterialInstance)
+		{
+			DissolveMaterialInstance = BlueDissolveMaterialInstance;
+		}
+		break;
+	case ETeam::ET_RedTeam:
+		if (RedMaterial)
+		{
+			GetMesh()->SetMaterial(0, RedMaterial);
+		}
+		if (RedDissolveMaterialInstance)
+		{
+			DissolveMaterialInstance = RedDissolveMaterialInstance;
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
@@ -1047,7 +1092,8 @@ double ABlasterCharacter::CaculateSpeed() const
 void ABlasterCharacter::ElimTimerFinished()
 {
 	// 게임모드에서 캐릭터 부활 요청. 게임모드는 서버에만 존재해서 서버에서만 처리될 것
-	if (ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>())
+	PollInit();
+	if (BlasterGameMode)
 	{
 		// 게임을 나가지 않은 경우에만 리스폰
 		if (!bLeftGame)
@@ -1090,6 +1136,7 @@ void ABlasterCharacter::PollInit()
 		{
 			BlasterPlayerState->AddToScore(0.f);
 			BlasterPlayerState->AddToDefeats(0);
+			SetTeamColor(BlasterPlayerState->GetTeam());
 		}
 
 		// 리스폰했을 때 점수가 리드상태였다면 왕관을 준다.
@@ -1100,6 +1147,11 @@ void ABlasterCharacter::PollInit()
 				MulticastGainedTheLead();
 			}
 		}
+	}
+
+	if (!BlasterGameMode && GetWorld())
+	{
+		BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
 	}
 
 	InitPlayerController();

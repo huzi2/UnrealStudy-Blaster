@@ -13,6 +13,8 @@ class ABlasterHUD;
 class UInputMappingContext;
 class UInputAction;
 class UReturnToMainMenu;
+class ABlasterPlayerState;
+class ABlasterGameState;
 /**
  * 
  */
@@ -69,8 +71,10 @@ public:
 	void SetHUDMatchCountdown(float CounddownTime);
 	void SetHUDAnnouncementCountdown(float CounddownTime);
 	void SetHUDGrenades(int32 Grenades);
+	void SetHUDBlueTeamScore(int32 BlueScore);
+	void SetHUDRedTeamScore(int32 RedScore);
 	float GetServerTime() const;
-	void OnMatchStateSet(const FName& State);
+	void OnMatchStateSet(const FName& State, bool bTeamsMatch = false);
 	void BroadcastElim(APlayerState* Attacker, APlayerState* Victim);
 
 private:
@@ -78,12 +82,16 @@ private:
 	void SetHUDTime();
 	void CheckTimeSync(float DeltaTime);
 	void PollInit();
-	void HandleMatchHasStarted();
+	void HandleMatchHasStarted(bool bTeamsMatch = false);
 	void HandleCooldown();
 	void HighPingWarning();
 	void StopHighPingWarning();
 	void CheckPing(float DeltaTime);
 	void ShowReturnToMainMenu();
+	void HideTeamScore();
+	void InitTeamScore();
+	FString GetInfoText(const TArray<ABlasterPlayerState*>& Players) const;
+	FString GetTeamsInfoText(ABlasterGameState* BlasterGameState) const;
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Time")
@@ -104,6 +112,12 @@ private:
 
 	UFUNCTION()
 	void OnRep_MatchState();
+
+	UPROPERTY(ReplicatedUsing = OnRep_ShowTeamScores)
+	bool bShowTeamScores;
+
+	UFUNCTION()
+	void OnRep_ShowTeamScores();
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;

@@ -17,73 +17,16 @@ ABlasterGameMode::ABlasterGameMode()
 	: WarmupTime(10.f)
 	, MatchTime(120.f)
 	, CooldownTime(10.f)
+	, bTeamsMatch(false)
 	, CountdownTime(0.f)
 	, LevelStartingTime(0.f)
 {
 	bDelayedStart = true;
 }
 
-void ABlasterGameMode::BeginPlay()
+float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage) const
 {
-	Super::BeginPlay();
-
-	if (GetWorld())
-	{
-		LevelStartingTime = GetWorld()->GetTimeSeconds();
-	}
-}
-
-void ABlasterGameMode::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	if (GetWorld())
-	{
-		// 매치 대기 시간이 지나면 매치 시작
-		if (MatchState == MatchState::WaitingToStart)
-		{
-			CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-			if (CountdownTime <= 0.f)
-			{
-				StartMatch();
-			}
-		}
-		// 매치에 주어진 시간이 지나면 쿨다운 상태로 변경
-		else if (MatchState == MatchState::InProgress)
-		{
-			CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-			if (CountdownTime <= 0.f)
-			{
-				SetMatchState(MatchState::Cooldown);
-			}
-		}
-		// 매치 사이에 주어진 사긴이 끝나면 다시 초기 상태로
-		else if (MatchState == MatchState::Cooldown)
-		{
-			CountdownTime = WarmupTime + MatchTime + CooldownTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-			if (CountdownTime <= 0.f)
-			{
-				RestartGame();
-			}
-		}
-	}
-}
-
-void ABlasterGameMode::OnMatchStateSet()
-{
-	Super::OnMatchStateSet();
-
-	if (!GetWorld()) return;
-
-	// 모든 컨트롤러에게 매치 상태를 알려준다. 게임모드는 서버만 가지고 있으므로 클라의 컨트롤러에게는 서버 컨트롤러가 레플리케이션으로 알려준다.
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-	{
-		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
-		if (BlasterPlayer)
-		{
-			BlasterPlayer->OnMatchStateSet(MatchState);
-		}
-	}
+	return BaseDamage;
 }
 
 void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
@@ -153,6 +96,69 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 	if (ElimmedCharacter)
 	{
 		ElimmedCharacter->Elim(false);
+	}
+}
+
+void ABlasterGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (GetWorld())
+	{
+		LevelStartingTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
+void ABlasterGameMode::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (GetWorld())
+	{
+		// 매치 대기 시간이 지나면 매치 시작
+		if (MatchState == MatchState::WaitingToStart)
+		{
+			CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+			if (CountdownTime <= 0.f)
+			{
+				StartMatch();
+			}
+		}
+		// 매치에 주어진 시간이 지나면 쿨다운 상태로 변경
+		else if (MatchState == MatchState::InProgress)
+		{
+			CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+			if (CountdownTime <= 0.f)
+			{
+				SetMatchState(MatchState::Cooldown);
+			}
+		}
+		// 매치 사이에 주어진 사긴이 끝나면 다시 초기 상태로
+		else if (MatchState == MatchState::Cooldown)
+		{
+			CountdownTime = WarmupTime + MatchTime + CooldownTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+			if (CountdownTime <= 0.f)
+			{
+				RestartGame();
+			}
+		}
+	}
+}
+
+void ABlasterGameMode::OnMatchStateSet()
+{
+	Super::OnMatchStateSet();
+
+	if (!GetWorld()) return;
+
+	// 모든 컨트롤러에게 매치 상태를 알려준다. 게임모드는 서버만 가지고 있으므로 클라의 컨트롤러에게는 서버 컨트롤러가 레플리케이션으로 알려준다.
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayer)
+		{
+			BlasterPlayer->OnMatchStateSet(MatchState, bTeamsMatch);
+		}
 	}
 }
 

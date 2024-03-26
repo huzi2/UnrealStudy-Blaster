@@ -3,10 +3,11 @@
 #include "GameState/BlasterGameState.h"
 #include "Net/UnrealNetwork.h"
 #include "PlayerState/BlasterPlayerState.h"
+#include "PlayerController/BlasterPlayerController.h"
 
 ABlasterGameState::ABlasterGameState()
-	: RedTeamScore(0.f)
-	, BlueTeamScore(0.f)
+	: BlueTeamScore(0.f)
+	, RedTeamScore(0.f)
 	, TopScore(0.f)
 {
 }
@@ -16,8 +17,8 @@ void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ABlasterGameState, TopScoringPlayers);
-	DOREPLIFETIME(ABlasterGameState, RedTeamScore);
 	DOREPLIFETIME(ABlasterGameState, BlueTeamScore);
+	DOREPLIFETIME(ABlasterGameState, RedTeamScore);
 }
 
 void ABlasterGameState::UpdateTopScore(ABlasterPlayerState* ScoringPlayer)
@@ -41,12 +42,46 @@ void ABlasterGameState::UpdateTopScore(ABlasterPlayerState* ScoringPlayer)
 	}
 }
 
-void ABlasterGameState::OnRep_RedTeamScore()
+void ABlasterGameState::BlueTeamScores()
 {
+	if (!GetWorld()) return;
 
+	++BlueTeamScore;
+
+	if (ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		BlasterPlayerController->SetHUDBlueTeamScore(BlueTeamScore);
+	}
+}
+
+void ABlasterGameState::RedTeamScores()
+{
+	if (!GetWorld()) return;
+
+	++RedTeamScore;
+
+	if (ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		BlasterPlayerController->SetHUDRedTeamScore(RedTeamScore);
+	}
 }
 
 void ABlasterGameState::OnRep_BlueTeamScore()
 {
+	if (!GetWorld()) return;
 
+	if (ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		BlasterPlayerController->SetHUDBlueTeamScore(BlueTeamScore);
+	}
+}
+
+void ABlasterGameState::OnRep_RedTeamScore()
+{
+	if (!GetWorld()) return;
+
+	if (ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		BlasterPlayerController->SetHUDRedTeamScore(RedTeamScore);
+	}
 }

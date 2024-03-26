@@ -34,6 +34,18 @@ void ABlasterPlayerState::OnRep_Score()
 	}
 }
 
+void ABlasterPlayerState::SetTeam(ETeam TeamToSet)
+{
+	Team = TeamToSet;
+
+	CheckInit();
+
+	if (Character)
+	{
+		Character->SetTeamColor(Team);
+	}
+}
+
 void ABlasterPlayerState::AddToScore(float ScoreAmount)
 {
 	// OnRep_Score()는 클라이언트에게만 호출되기에 서버에서 호출할 함수
@@ -73,6 +85,16 @@ void ABlasterPlayerState::CheckInit()
 		{
 			Controller = Cast<ABlasterPlayerController>(Character->Controller);
 		}
+	}
+}
+
+void ABlasterPlayerState::OnRep_Team()
+{
+	CheckInit();
+
+	if (Character)
+	{
+		Character->SetTeamColor(Team);
 	}
 }
 
