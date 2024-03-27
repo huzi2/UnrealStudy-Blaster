@@ -109,6 +109,7 @@ private:
 	void AttachActorToRightHand(AActor* ActorToAttach);
 	void AttachActorToLeftHand(AActor* ActorToAttach);
 	void AttachActorToBackpack(AActor* ActorToAttach);
+	void AttachFlagToLeftHand(AWeapon* Flag);
 	void UpdateCarriedAmmo();
 	void PlayEquipWeaponSound(AWeapon* WeaponToEquip);
 	void ReloadEmptyWeapon();
@@ -196,6 +197,12 @@ private:
 
 	UFUNCTION()
 	void OnRep_Grenades();
+
+	UPROPERTY(ReplicatedUsing = OnRep_HoldingTheFlag)
+	bool bHoldingTheFlag;
+
+	UFUNCTION()
+	void OnRep_HoldingTheFlag();
 
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;

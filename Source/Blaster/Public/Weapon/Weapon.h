@@ -117,6 +117,12 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	float SphereRadius;
 
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
+	TObjectPtr<USphereComponent> AreaSphere;
+
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
+	TObjectPtr<UWidgetComponent> PickupWidget;
+
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	float Damage;
 
@@ -136,17 +142,11 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	TObjectPtr<USkeletalMeshComponent> WeaponMesh;
 
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
-	TObjectPtr<USphereComponent> AreaSphere;
-
 	UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
 	EWeaponState WeaponState;
 
 	UFUNCTION()
 	void OnRep_WeaponState();
-
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
-	TObjectPtr<UWidgetComponent> PickupWidget;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	TObjectPtr<UAnimationAsset> FireAnimation;

@@ -99,10 +99,10 @@ public:
 	FORCEINLINE const TMap<FName, UBoxComponent*>& GetHitCollisionBoxes() const { return HitCollisionBoxes; }
 	FORCEINLINE bool IsbFinishedSwapping() const { return bFinishedSwapping; }
 	FORCEINLINE void SetIsbFinishedSwapping(bool Finished) { bFinishedSwapping = Finished; }
-
+	
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
-	ECombatState GetCombatState() const;;
+	ECombatState GetCombatState() const;
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped() const;
@@ -119,6 +119,7 @@ public:
 	void SpawnDefaultWeapon();
 	bool IsLocallyReloading() const;
 	void SetTeamColor(ETeam Team);
+	bool IsHoldingTheFlag() const;
 
 private:
 	void MoveForward(const FInputActionValue& Value);

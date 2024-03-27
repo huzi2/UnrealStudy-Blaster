@@ -33,6 +33,7 @@ UCombatComponent::UCombatComponent()
 	, MaxCarriedAmmo(500)
 	, CombatState(ECombatState::ECS_Unoccupied)
 	, Grenades(4)
+	, bHoldingTheFlag(false)
 	, bCanFire(true)
 	, bAimButtonPressed(false)
 	, bLocallyReloading(false)
@@ -100,8 +101,8 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo, COND_OwnerOnly);
 
 	DOREPLIFETIME(UCombatComponent, CombatState);
-
 	DOREPLIFETIME(UCombatComponent, Grenades);
+	DOREPLIFETIME(UCombatComponent, bHoldingTheFlag);
 }
 
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
@@ -302,6 +303,19 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	if (!WeaponToEquip) return;
 	if (!Character) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
+
+	// 깃발을 집었을 경우 처리
+	if (WeaponToEquip->GetWeaponType() == EWeaponType::EWT_Flag)
+	{
+		// 깃발을 집었을 때는 플레이어를 강제로 숙인다.
+		Character->Crouch();
+
+		bHoldingTheFlag = true;
+		AttachFlagToLeftHand(WeaponToEquip);
+		WeaponToEquip->SetWeaponState(EWeaponState::EWS_Equipped);
+		WeaponToEquip->SetOwner(Character);
+		return;
+	}
 
 	bCanFire = true;
 
@@ -873,6 +887,19 @@ void UCombatComponent::AttachActorToBackpack(AActor* ActorToAttach)
 	}
 }
 
+void UCombatComponent::AttachFlagToLeftHand(AWeapon* Flag)
+{
+	if (!Flag) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	const USkeletalMeshSocket* FlagSocket = Character->GetMesh()->GetSocketByName(TEXT("FlagSocket"));
+	if (FlagSocket)
+	{
+		FlagSocket->AttachActor(Flag, Character->GetMesh());
+	}
+}
+
 void UCombatComponent::UpdateCarriedAmmo()
 {
 	if (!EquippedWeapon) return;
@@ -1070,4 +1097,12 @@ void UCombatComponent::OnRep_CombatState()
 void UCombatComponent::OnRep_Grenades()
 {
 	UpdateHUDGrenades();
+}
+
+void UCombatComponent::OnRep_HoldingTheFlag()
+{
+	if (bHoldingTheFlag && Character && Character->IsLocallyControlled())
+	{
+		Character->Crouch();
+	}
 }

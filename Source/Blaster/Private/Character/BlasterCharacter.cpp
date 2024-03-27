@@ -308,6 +308,7 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 void ABlasterCharacter::Jump()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (bIsCrouched)
 	{
@@ -766,6 +767,12 @@ void ABlasterCharacter::SetTeamColor(ETeam Team)
 	}
 }
 
+bool ABlasterCharacter::IsHoldingTheFlag() const
+{
+	if (!Combat) return false;
+	return Combat->bHoldingTheFlag;
+}
+
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
 {
 	if (bDisableGameplay) return;
@@ -813,7 +820,8 @@ void ABlasterCharacter::LookUp(const FInputActionValue& Value)
 void ABlasterCharacter::EquipButtonPressed()
 {
 	if (bDisableGameplay) return;
-
+	if (Combat && Combat->bHoldingTheFlag) return;
+	
 	if (Combat && Combat->CombatState == ECombatState::ECS_Unoccupied)
 	{
 		// 서버에게 무기장착 요구. 서버면 바로 장착하고, 클라면 서버를 통해서 장착
@@ -832,6 +840,7 @@ void ABlasterCharacter::EquipButtonPressed()
 void ABlasterCharacter::CrouchButtonPressed()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (bIsCrouched)
 	{
@@ -846,6 +855,7 @@ void ABlasterCharacter::CrouchButtonPressed()
 void ABlasterCharacter::AimButtonPressed()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (Combat)
 	{
@@ -856,6 +866,7 @@ void ABlasterCharacter::AimButtonPressed()
 void ABlasterCharacter::AimButtonReleased()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (Combat)
 	{
@@ -866,6 +877,7 @@ void ABlasterCharacter::AimButtonReleased()
 void ABlasterCharacter::FireButtonPressed()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (Combat)
 	{
@@ -876,6 +888,7 @@ void ABlasterCharacter::FireButtonPressed()
 void ABlasterCharacter::FireButtonReleased()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (Combat)
 	{
@@ -886,6 +899,7 @@ void ABlasterCharacter::FireButtonReleased()
 void ABlasterCharacter::ReloadButtonPressed()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (Combat)
 	{
@@ -896,6 +910,7 @@ void ABlasterCharacter::ReloadButtonPressed()
 void ABlasterCharacter::ThrowGrenadeButtonPressed()
 {
 	if (bDisableGameplay) return;
+	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (Combat)
 	{
@@ -1159,6 +1174,18 @@ void ABlasterCharacter::PollInit()
 
 void ABlasterCharacter::RotateInPlace(float DeltaTime)
 {
+	// 깃발을 들었을 때는 에임 필요없음
+	if (Combat && Combat->bHoldingTheFlag)
+	{
+		bUseControllerRotationYaw = false;
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		if (GetCharacterMovement())
+		{
+			GetCharacterMovement()->bOrientRotationToMovement = true;
+		}
+		return;
+	}
+
 	if (bDisableGameplay)
 	{
 		bUseControllerRotationYaw = false;
