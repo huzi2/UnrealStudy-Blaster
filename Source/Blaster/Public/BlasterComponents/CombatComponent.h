@@ -131,6 +131,12 @@ private:
 	UFUNCTION()
 	void OnRep_SecondaryWeapon();
 
+	UPROPERTY(ReplicatedUsing = OnRep_TheFlag)
+	AWeapon* TheFlag;
+
+	UFUNCTION()
+	void OnRep_TheFlag();
+
 	UPROPERTY(ReplicatedUsing = OnRep_Aiming)
 	bool bAiming;
 

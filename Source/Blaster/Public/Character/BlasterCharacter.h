@@ -103,6 +103,7 @@ public:
 	AWeapon* GetEquippedWeapon() const;
 	FVector GetHitTarget() const;
 	ECombatState GetCombatState() const;
+	ETeam GetTeam();
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped() const;
@@ -149,6 +150,8 @@ private:
 	void UpdateHUDAmmo();
 	void DropOrDestroyWeapon(AWeapon* Weapon);
 	void DropOrDestroyWeapons();
+	void SetSpawnPoint();
+	void OnPlayerStateInitialized();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")

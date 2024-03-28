@@ -93,6 +93,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	// 근데 애님인스턴스에서 해당 변수로 무기가 장착되었는지 확인하기에 각 클라에 레플리케이트해야한다.
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 	DOREPLIFETIME(UCombatComponent, SecondaryWeapon);
+	DOREPLIFETIME(UCombatComponent, TheFlag);
 
 	// 조준 자세를 다른 클라도 확인해야해서 레플리케이트
 	DOREPLIFETIME(UCombatComponent, bAiming);
@@ -311,9 +312,10 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		Character->Crouch();
 
 		bHoldingTheFlag = true;
-		AttachFlagToLeftHand(WeaponToEquip);
 		WeaponToEquip->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachFlagToLeftHand(WeaponToEquip);
 		WeaponToEquip->SetOwner(Character);
+		TheFlag = WeaponToEquip;
 		return;
 	}
 
@@ -1029,6 +1031,15 @@ void UCombatComponent::OnRep_SecondaryWeapon()
 		AttachActorToBackpack(SecondaryWeapon);
 
 		PlayEquipWeaponSound(SecondaryWeapon);
+	}
+}
+
+void UCombatComponent::OnRep_TheFlag()
+{
+	if (TheFlag)
+	{
+		TheFlag->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachFlagToLeftHand(TheFlag);
 	}
 }
 

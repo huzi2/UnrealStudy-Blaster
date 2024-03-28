@@ -129,11 +129,98 @@ void AWeapon::Fire(const FVector& HitTarget)
 	SpendRound();
 }
 
+void AWeapon::Dropped()
+{
+	SetWeaponState(EWeaponState::EWS_Dropped);
+
+	// 무기를 땅에 떨구고
+	if (WeaponMesh)
+	{
+		FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+		WeaponMesh->DetachFromComponent(DetachRules);
+	}
+
+	// 소유자 초기화. 서버에서만 호출되서 클라는 OnRep_Owner()에서 처리
+	SetOwner(nullptr);
+	BlasterOwnerCharacter = nullptr;
+	BlasterOwnerController = nullptr;
+}
+
+void AWeapon::OnEquipped()
+{
+	ShowPickupWidget(false);
+
+	// 충돌 처리는 서버에서만 하므로 충돌 끄는건 서버에서만 하면됨
+	if (HasAuthority() && AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetSimulatePhysics(false);
+
+		// SMG에는 피직스 에셋으로 줄 흔들림을 구현해서 충돌처리와 중력 사용
+		if (WeaponType == EWeaponType::EWT_SubmachineGun)
+		{
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			WeaponMesh->SetEnableGravity(true);
+			// 그렇다고 다른 물체와 충돌하면 안되니까 무시
+			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		}
+		else
+		{
+			WeaponMesh->SetEnableGravity(false);
+			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+
+		// 무기 외곽선 제거
+		EnableCustomDepth(false);
+	}
+}
+
+void AWeapon::OnDropped()
+{
+	// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
+	if (HasAuthority() && AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetSimulatePhysics(true);
+		WeaponMesh->SetEnableGravity(true);
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+		// 드롭할떄는 땅과 다시 충돌해야하므로 블록으로 설정(SMG의 경우)
+		WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+		WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+		WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+		// 무기 외곽 강조 효과 킴
+		WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
+		WeaponMesh->MarkRenderStateDirty();
+		EnableCustomDepth(true);
+	}
+
+	// 무기를 떨어뜨리면 연결된 델리게이트 해제
+	if (BlasterOwnerController && HasAuthority() && BlasterOwnerController->HighPingDelegate.IsBound())
+	{
+		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);
+	}
+}
+
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacther)
 	{
+		// 깃발은 같은 팀만 들 수 있다.
+		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() != Team) return;
+		// 깃발을 든 상태에서는 무기를 집을 수 없다.
+		if (BlasterCharacther->IsHoldingTheFlag()) return;
+
 		BlasterCharacther->SetOverlappingWeapon(this);
 	}
 }
@@ -143,6 +230,9 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 	ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacther)
 	{
+		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() != Team) return;
+		if (BlasterCharacther->IsHoldingTheFlag()) return;
+
 		BlasterCharacther->SetOverlappingWeapon(nullptr);
 	}
 }
@@ -193,23 +283,6 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 	{
 		PickupWidget->SetVisibility(bShowWidget);
 	}
-}
-
-void AWeapon::Dropped()
-{
-	SetWeaponState(EWeaponState::EWS_Dropped);
-
-	// 무기를 땅에 떨구고
-	if (WeaponMesh)
-	{
-		FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
-		WeaponMesh->DetachFromComponent(DetachRules);
-	}
-
-	// 소유자 초기화. 서버에서만 호출되서 클라는 OnRep_Owner()에서 처리
-	SetOwner(nullptr);
-	BlasterOwnerCharacter = nullptr;
-	BlasterOwnerController = nullptr;
 }
 
 void AWeapon::SetHUDAmmo()
@@ -329,39 +402,6 @@ void AWeapon::OnWeaponStateSet()
 	}
 }
 
-void AWeapon::OnEquipped()
-{
-	ShowPickupWidget(false);
-
-	// 충돌 처리는 서버에서만 하므로 충돌 끄는건 서버에서만 하면됨
-	if (HasAuthority() && AreaSphere)
-	{
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
-
-	if (WeaponMesh)
-	{
-		WeaponMesh->SetSimulatePhysics(false);
-
-		// SMG에는 피직스 에셋으로 줄 흔들림을 구현해서 충돌처리와 중력 사용
-		if (WeaponType == EWeaponType::EWT_SubmachineGun)
-		{
-			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			WeaponMesh->SetEnableGravity(true);
-			// 그렇다고 다른 물체와 충돌하면 안되니까 무시
-			WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-		}
-		else
-		{
-			WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			WeaponMesh->SetEnableGravity(false);
-		}
-
-		// 무기 외곽선 제거
-		EnableCustomDepth(false);
-	}
-}
-
 void AWeapon::OnEquippedSecondary()
 {
 	ShowPickupWidget(false);
@@ -395,38 +435,6 @@ void AWeapon::OnEquippedSecondary()
 	}
 
 	// 무기를 교체하면 연결된 델리게이트 해제
-	if (BlasterOwnerController && HasAuthority() && BlasterOwnerController->HighPingDelegate.IsBound())
-	{
-		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);
-	}
-}
-
-void AWeapon::OnDropped()
-{
-	// 주울 수 있는 충돌 처리는 서버에서만 하므로 충돌 키는건 서버에서만 하면됨
-	if (HasAuthority() && AreaSphere)
-	{
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	}
-
-	if (WeaponMesh)
-	{
-		WeaponMesh->SetSimulatePhysics(true);
-		WeaponMesh->SetEnableGravity(true);
-		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-		// 드롭할떄는 땅과 다시 충돌해야하므로 블록으로 설정(SMG의 경우)
-		WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
-		WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
-		WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
-	}
-
-	// 무기 외곽 강조 효과 킴
-	WeaponMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
-	WeaponMesh->MarkRenderStateDirty();
-	EnableCustomDepth(true);
-
-	// 무기를 떨어뜨리면 연결된 델리게이트 해제
 	if (BlasterOwnerController && HasAuthority() && BlasterOwnerController->HighPingDelegate.IsBound())
 	{
 		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);

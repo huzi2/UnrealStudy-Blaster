@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Weapon/WeaponTypes.h"
+#include "BlasterTypes/Team.h"
 #include "Weapon.generated.h"
 
 UENUM(BlueprintType)
@@ -50,6 +51,11 @@ private:
 
 public:
 	virtual void Fire(const FVector& HitTarget);
+	virtual void Dropped();
+
+private:
+	virtual void OnEquipped();
+	virtual void OnDropped();
 
 protected:
 	UFUNCTION()
@@ -92,7 +98,6 @@ public:
 	FORCEINLINE bool GetUseScatter() const { return bUseScatter; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
-	void Dropped();
 	void SetHUDAmmo();
 	bool IsEmpty() const;
 	bool IsFull() const;
@@ -106,9 +111,7 @@ protected:
 private:
 	void SpendRound();
 	void OnWeaponStateSet();
-	void OnEquipped();
 	void OnEquippedSecondary();
-	void OnDropped();
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
@@ -198,6 +201,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	bool bUseScatter;
+
+	UPROPERTY(EditAnywhere, Category = "Flag")
+	ETeam Team;
 
 private:
 	bool bDestroyWeapon;

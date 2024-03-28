@@ -18,6 +18,11 @@ private:
 	AFlag();
 
 private:
+	virtual void Dropped() final;
+	virtual void OnEquipped() final;
+	virtual void OnDropped() final;
+
+private:
 	UPROPERTY(VisibleAnywhere, Category = "Flag")
 	TObjectPtr<UStaticMeshComponent> FlagMesh;
 };

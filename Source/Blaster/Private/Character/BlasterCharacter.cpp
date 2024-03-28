@@ -26,6 +26,7 @@
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "GameState/BlasterGameState.h"
+#include "PlayerStart/TeamPlayerStart.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -541,6 +542,14 @@ ECombatState ABlasterCharacter::GetCombatState() const
 {
 	if (!Combat) return ECombatState::ECS_MAX;
 	return Combat->CombatState;
+}
+
+ETeam ABlasterCharacter::GetTeam()
+{
+	PollInit();
+
+	if (BlasterPlayerState) return BlasterPlayerState->GetTeam();
+	return ETeam::ET_NoTeam;
 }
 
 void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
@@ -1149,9 +1158,7 @@ void ABlasterCharacter::PollInit()
 	{
 		if (BlasterPlayerState = GetPlayerState<ABlasterPlayerState>())
 		{
-			BlasterPlayerState->AddToScore(0.f);
-			BlasterPlayerState->AddToDefeats(0);
-			SetTeamColor(BlasterPlayerState->GetTeam());
+			OnPlayerStateInitialized();
 		}
 
 		// 리스폰했을 때 점수가 리드상태였다면 왕관을 준다.
@@ -1240,7 +1247,52 @@ void ABlasterCharacter::DropOrDestroyWeapons()
 	{
 		DropOrDestroyWeapon(Combat->EquippedWeapon);
 		DropOrDestroyWeapon(Combat->SecondaryWeapon);
+		DropOrDestroyWeapon(Combat->TheFlag);
 	}
+}
+
+void ABlasterCharacter::SetSpawnPoint()
+{
+	// 생성은 서버에서만 하니까 스폰포인트는 서버에서만 정하면 됨
+	if (HasAuthority() && BlasterPlayerState && BlasterPlayerState->GetTeam() != ETeam::ET_NoTeam)
+	{
+		TArray<AActor*> PlayerStarts;
+		UGameplayStatics::GetAllActorsOfClass(this, ATeamPlayerStart::StaticClass(), PlayerStarts);
+
+		// 팀 플레이어 스타트 포지션들을 확인
+		TArray<ATeamPlayerStart*> TeamPlayerStarts;
+		for (AActor* Start : PlayerStarts)
+		{
+			if (ATeamPlayerStart* TeamStart = Cast<ATeamPlayerStart>(Start))
+			{
+				if (TeamStart->GetTeam() == BlasterPlayerState->GetTeam())
+				{
+					TeamPlayerStarts.Add(TeamStart);
+				}
+			}
+		}
+
+		// 해당 위치로 플레이어의 위치를 옮긴다.
+		if (TeamPlayerStarts.Num() > 0)
+		{
+			if (ATeamPlayerStart* ChosenPlayerStart = TeamPlayerStarts[FMath::RandRange(0, TeamPlayerStarts.Num() - 1)])
+			{
+				SetActorLocationAndRotation(ChosenPlayerStart->GetActorLocation(), ChosenPlayerStart->GetActorRotation());
+			}
+		}
+	}
+}
+
+void ABlasterCharacter::OnPlayerStateInitialized()
+{
+	if (!BlasterPlayerState) return;
+
+	BlasterPlayerState->AddToScore(0.f);
+	BlasterPlayerState->AddToDefeats(0);
+	// 팀 색깔을 입히고
+	SetTeamColor(BlasterPlayerState->GetTeam());
+	// 스폰지점도 팀 스폰포인트로 지정
+	SetSpawnPoint();
 }
 
 void ABlasterCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
