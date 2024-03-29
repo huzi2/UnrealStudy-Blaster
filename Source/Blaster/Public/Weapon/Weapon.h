@@ -45,9 +45,11 @@ protected:
 	AWeapon();
 
 private:
-	virtual void BeginPlay() final;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const final;
-	virtual void OnRep_Owner() final;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void OnRep_Owner() override;
+
+protected:
+	virtual void BeginPlay() override;
 
 public:
 	virtual void Fire(const FVector& HitTarget);
@@ -96,6 +98,7 @@ public:
 	FORCEINLINE bool GetDestroyWeapon() const { return bDestroyWeapon; }
 	FORCEINLINE void SetDestroyWeapon(bool bDestroy) { bDestroyWeapon = bDestroy; }
 	FORCEINLINE bool GetUseScatter() const { return bUseScatter; }
+	FORCEINLINE ETeam GetTeam() const { return Team; }
 	void SetWeaponState(EWeaponState State);
 	void ShowPickupWidget(bool bShowWidget);
 	void SetHUDAmmo();

@@ -782,6 +782,12 @@ bool ABlasterCharacter::IsHoldingTheFlag() const
 	return Combat->bHoldingTheFlag;
 }
 
+void ABlasterCharacter::SetHoldingTheFlag(bool bHolding)
+{
+	if (!Combat) return;
+	Combat->bHoldingTheFlag = bHolding;
+}
+
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
 {
 	if (bDisableGameplay) return;
@@ -1191,6 +1197,16 @@ void ABlasterCharacter::RotateInPlace(float DeltaTime)
 			GetCharacterMovement()->bOrientRotationToMovement = true;
 		}
 		return;
+	}
+
+	// 깃발을 안들었을 떄
+	if (Combat && Combat->EquippedWeapon)
+	{
+		bUseControllerRotationYaw = true;
+		if (GetCharacterMovement())
+		{
+			GetCharacterMovement()->bOrientRotationToMovement = false;
+		}
 	}
 
 	if (bDisableGameplay)

@@ -18,11 +18,19 @@ private:
 	AFlag();
 
 private:
+	virtual void BeginPlay() final;
+
 	virtual void Dropped() final;
 	virtual void OnEquipped() final;
 	virtual void OnDropped() final;
 
+public:
+	void ResetFlag();
+
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Flag")
 	TObjectPtr<UStaticMeshComponent> FlagMesh;
+
+private:
+	FTransform InitialTransform;
 };

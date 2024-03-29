@@ -52,6 +52,13 @@ private:
 private:
 	void MenuTearDown();
 
+protected:
+	UPROPERTY(BlueprintReadWrite)
+	FString MatchType;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 NumPublicConnections;
+
 private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> HostButton;
@@ -63,7 +70,5 @@ private:
 	TObjectPtr<UMultiplayerSessionsSubsystem> MultiplayerSessionsSubsystem;
 
 private:
-	int32 NumPublicConnections;
-	FString MatchType;
 	FString PathToLobby;
 };

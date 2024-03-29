@@ -53,24 +53,6 @@ AWeapon::AWeapon()
 	PickupWidget->SetupAttachment(GetRootComponent());
 }
 
-void AWeapon::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (PickupWidget)
-	{
-		PickupWidget->SetVisibility(false);
-	}
-
-	if (AreaSphere)
-	{
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-		AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereOverlap);
-		AreaSphere->OnComponentEndOverlap.AddDynamic(this, &ThisClass::OnSphereEndOverlap);
-	}
-}
-
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -102,6 +84,24 @@ void AWeapon::OnRep_Owner()
 			// 이 무기에 저장된 탄약 수를 오너에게 알림
 			SetHUDAmmo();
 		}
+	}
+}
+
+void AWeapon::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (PickupWidget)
+	{
+		PickupWidget->SetVisibility(false);
+	}
+
+	if (AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+		AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereOverlap);
+		AreaSphere->OnComponentEndOverlap.AddDynamic(this, &ThisClass::OnSphereEndOverlap);
 	}
 }
 
@@ -216,8 +216,8 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 	ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacther)
 	{
-		// 깃발은 같은 팀만 들 수 있다.
-		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() != Team) return;
+		// 깃발은 다른 팀만 들 수 있다.
+		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() == Team) return;
 		// 깃발을 든 상태에서는 무기를 집을 수 없다.
 		if (BlasterCharacther->IsHoldingTheFlag()) return;
 
@@ -230,7 +230,7 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 	ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacther)
 	{
-		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() != Team) return;
+		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() == Team) return;
 		if (BlasterCharacther->IsHoldingTheFlag()) return;
 
 		BlasterCharacther->SetOverlappingWeapon(nullptr);

@@ -3,6 +3,7 @@
 #include "Weapon/Flag.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Character/BlasterCharacter.h"
 
 AFlag::AFlag()
 {
@@ -13,6 +14,14 @@ AFlag::AFlag()
 
 	AreaSphere->SetupAttachment(FlagMesh);
 	PickupWidget->SetupAttachment(FlagMesh);
+}
+
+void AFlag::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// 깃발을 깃발존에 넣었을 때 다시 원래 깃발 위치로 돌아가기 위해서 저장
+	InitialTransform = GetActorTransform();
 }
 
 void AFlag::Dropped()
@@ -45,8 +54,11 @@ void AFlag::OnEquipped()
 	if (FlagMesh)
 	{
 		FlagMesh->SetSimulatePhysics(false);
-		FlagMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		FlagMesh->SetEnableGravity(false);
+
+		// 깃발존과 충돌 확인해야하므로 쿼리 온리
+		FlagMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		FlagMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Overlap);;
 
 		// 무기 외곽선 제거
 		EnableCustomDepth(false);
@@ -77,4 +89,37 @@ void AFlag::OnDropped()
 		FlagMesh->MarkRenderStateDirty();
 		EnableCustomDepth(true);
 	}
+}
+
+void AFlag::ResetFlag()
+{
+	// 깃발을 들고 있던 플레이어가 깃발을 놓는다.
+	if (ABlasterCharacter* FlagBearer = Cast<ABlasterCharacter>(GetOwner()))
+	{
+		FlagBearer->SetHoldingTheFlag(false);
+		FlagBearer->SetOverlappingWeapon(nullptr);
+		FlagBearer->UnCrouch();
+	}
+
+	if (!HasAuthority()) return;
+
+	if (FlagMesh)
+	{
+		FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+		FlagMesh->DetachFromComponent(DetachRules);
+	}
+
+	if (AreaSphere)
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	}
+
+	SetWeaponState(EWeaponState::EWS_Initial);
+
+	SetOwner(nullptr);
+	BlasterOwnerCharacter = nullptr;
+	BlasterOwnerController = nullptr;
+
+	SetActorTransform(InitialTransform);
 }

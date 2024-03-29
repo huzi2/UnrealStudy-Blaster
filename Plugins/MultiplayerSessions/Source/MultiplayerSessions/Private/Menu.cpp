@@ -8,8 +8,8 @@
 
 UMenu::UMenu(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, NumPublicConnections(4)
 	, MatchType(TEXT("FreeForAll"))
+	, NumPublicConnections(4)
 	, PathToLobby(FString())
 {
 }

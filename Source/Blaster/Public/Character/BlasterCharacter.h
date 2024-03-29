@@ -121,6 +121,7 @@ public:
 	bool IsLocallyReloading() const;
 	void SetTeamColor(ETeam Team);
 	bool IsHoldingTheFlag() const;
+	void SetHoldingTheFlag(bool bHolding);
 
 private:
 	void MoveForward(const FInputActionValue& Value);
