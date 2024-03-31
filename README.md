@@ -40,6 +40,16 @@
   - 매치 중
   - <img width="523" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/1387343c-e206-4b39-a2bc-a06cfa807308">
   - 매치 사이의 대기 시간(커스텀 매치 구현). 최고 득점자 출력
+- 팀 게임 모드 구현
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/1134b35f-1b6c-4ab6-ba2b-0f835bc27da6)
+  - 팀별로 다른 머티리얼 사용하도록 함. 팀별로 플레이어스타트 지정. 게임스테이트에서 팀 점수 구현
+- 팀 깃발 뺏기 게임 모드 구현
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/2f17f478-1e29-4ec9-931c-97c749a39150)
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/745d5082-245f-416b-9733-4cd5739eb9ed)
+  - 적 팀의 깃발을 뺏어서
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/0652ae97-f57c-482f-925b-a951c4d32324)
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/7287552a-b748-4fae-88cd-eabcbf8e2b51)
+  - 아군 깃발 존에 넣으면 득점하도록 구현
 - 공격 시 탄피 구현
   - <img width="833" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/1dfa9cce-e4cc-41db-ae1f-0d2021a07b20">
   - <img width="208" alt="image" src="https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/4960afa7-ed0c-462a-be8d-b2e37001d662">
