@@ -8,7 +8,7 @@
   
 ## 제작 기간
 
-- 24.01.31 ~ (개발 중)
+- 24.01.31 ~ 24.03.31 (2개월)
 
 ## 개발 환경
 
@@ -98,6 +98,9 @@
 - FABRIK
 
 ### UI
+- 로비 메뉴 UI
+  - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/48ad0cd3-d64d-42ae-959f-e0612333ff16)
+  - 게임 인원과 게임 모드(개인전, 팀전, 깃발뺏기)를 선택해서 들어갈 수 있음
 - 전체적인 게임 HUD
   - ![image](https://github.com/huzi2/UnrealStudy-Blaster/assets/31639085/8c5dbdee-4996-4fae-ac56-ac536f0080b7)
   - 체력, 보호막, 타이머, 킬데스, 탄약, 여분 탄약, 수류탄 표시
