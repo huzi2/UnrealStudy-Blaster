@@ -2,6 +2,7 @@
 
 #include "GameMode/LobbyGameMode.h"
 #include "GameFramework/GameStateBase.h"
+#include "MultiplayerSessionsSubsystem.h"
 
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
@@ -9,15 +10,33 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 
 	if (!GameState.Get()) return;
 	
-	// 접속한 사람이 특정 수가 되면 레벨 이동
-	const int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
-	if (NumberOfPlayers == 2)
+	if (UGameInstance* GameInstance = GetGameInstance())
 	{
-		UWorld* World = GetWorld();
-		if (World)
+		// 서브시스템에 저장해놓은 게임 인원 수와 게임 방법을 얻어온다.
+		UMultiplayerSessionsSubsystem* Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
+		check(Subsystem);
+
+		// 접속한 사람이 특정 수가 되면 레벨 이동
+		const int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
+		if (NumberOfPlayers == Subsystem->GetDesiredNumPublicConnections())
 		{
-			bUseSeamlessTravel = true;
-			World->ServerTravel(TEXT("/Game/Maps/BlasterMap?listen"));
+			if (UWorld* World = GetWorld())
+			{
+				bUseSeamlessTravel = true;
+				const FString MatchType = Subsystem->GetDesiredMatchType();
+				if (MatchType == TEXT("FreeForAll"))
+				{
+					World->ServerTravel(TEXT("/Game/Maps/BlasterMap?listen"));
+				}
+				else if (MatchType == TEXT("Teams"))
+				{
+					World->ServerTravel(TEXT("/Game/Maps/Teams?listen"));
+				}
+				else if (MatchType == TEXT("CaptureTheFlag"))
+				{
+					World->ServerTravel(TEXT("/Game/Maps/CaptureTheFlag?listen"));
+				}
+			}
 		}
 	}
 }

@@ -220,6 +220,7 @@ void UMenu::HostButtonClicked()
 	// Host 버튼을 눌러서 멀티플레이어 세션 서브시스템에서 세션 생성 수행
 	if (MultiplayerSessionsSubsystem)
 	{
+		// 게임 인원과 게임 방식을 저장
 		MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
 	}
 }

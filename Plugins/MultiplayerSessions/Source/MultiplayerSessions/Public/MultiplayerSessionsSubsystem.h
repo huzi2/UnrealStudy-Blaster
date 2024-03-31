@@ -25,6 +25,9 @@ public:
 	UMultiplayerSessionsSubsystem();
 
 public:
+	FORCEINLINE int32 GetDesiredNumPublicConnections() const { return DesiredNumPublicConnections; }
+	FORCEINLINE const FString& GetDesiredMatchType() const { return DesiredMatchType; }
+
 	void CreateSession(int32 NumPublicConnections, const FString& MatchType);
 	void FindSessions(int32 MaxSearchResults);
 	void JoinSession(const FOnlineSessionSearchResult& SessionResult);
@@ -66,4 +69,7 @@ private:
 	bool bCreateSessionOnDestroy;
 	int32 LastNumPublicConnections;
 	FString LastMatchType;
+
+	int32 DesiredNumPublicConnections;
+	FString DesiredMatchType;
 };

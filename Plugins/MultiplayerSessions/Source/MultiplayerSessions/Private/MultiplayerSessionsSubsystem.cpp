@@ -12,6 +12,8 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem()
 	, DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete))
 	, StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete))
 	, bCreateSessionOnDestroy(false)
+	, DesiredNumPublicConnections(0)
+	, DesiredMatchType(FString())
 {
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
@@ -22,6 +24,10 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem()
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
 {
+	// 실제 게임에서 사용할 인원 수와 게임 방식 저장
+	DesiredNumPublicConnections = NumPublicConnections;
+	DesiredMatchType = MatchType;
+
 	if (!SessionInterface.IsValid())
 	{
 		MultiplayerOnCreateSessionComplete.Broadcast(false);
