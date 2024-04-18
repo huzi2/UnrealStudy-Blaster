@@ -6,18 +6,46 @@
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
 
-UMenu::UMenu(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-	, MatchType(TEXT("FreeForAll"))
-	, NumPublicConnections(4)
-	, PathToLobby(FString())
-{
-}
+// 세션 최대 플레이어 수
+constexpr int32 DEFAULT_MAX_PLAYERS = 10000;
 
 bool UMenu::Initialize()
 {
 	if (!Super::Initialize()) return false;
+	BindWidgetEvents();
+	return true;
+}
 
+void UMenu::NativeDestruct()
+{
+	MenuTearDown();
+	Super::NativeDestruct();
+}
+
+void UMenu::HostButtonClicked()
+{
+	// 세션 생성 중 버튼 비활성화
+	if (HostButton)
+	{
+		HostButton->SetIsEnabled(false);
+	}
+
+	CreateSession();
+}
+
+void UMenu::JoinButtonClicked()
+{
+	// 세션 검색 중 버튼 비활성화
+	if (JoinButton)
+	{
+		JoinButton->SetIsEnabled(false);
+	}
+
+	FindSessions();
+}
+
+void UMenu::BindWidgetEvents()
+{
 	if (HostButton)
 	{
 		HostButton->OnClicked.AddDynamic(this, &ThisClass::HostButtonClicked);
@@ -27,15 +55,97 @@ bool UMenu::Initialize()
 	{
 		JoinButton->OnClicked.AddDynamic(this, &ThisClass::JoinButtonClicked);
 	}
-
-	return true;
 }
 
-void UMenu::NativeDestruct()
+void UMenu::CreateSession()
 {
-	MenuTearDown();
+	// 멀티플레이어 세션 서브시스템에서 세션 생성 수행
+	if (MultiplayerSessionsSubsystem)
+	{
+		// 게임 인원과 게임 방식을 저장
+		MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
+	}
+}
 
-	Super::NativeDestruct();
+void UMenu::FindSessions()
+{
+	// 멀티플레이어 세션 서브시스템에서 세션 찾기 수행
+	if (MultiplayerSessionsSubsystem)
+	{
+		MultiplayerSessionsSubsystem->FindSessions(DEFAULT_MAX_PLAYERS);
+	}
+}
+
+void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatch, const FString& LobbyPath)
+{
+	UpdateSessionConfig(NumberOfPublicConnections, TypeOfMatch, LobbyPath);
+	PrepareUI();
+	BindSessionEvents();
+}
+
+void UMenu::UpdateSessionConfig(int32 NumberOfPublicConnections, const FString& TypeOfMatch, const FString& LobbyPath)
+{
+	NumPublicConnections = NumberOfPublicConnections;
+	MatchType = TypeOfMatch;
+	PathToLobby = FString::Printf(TEXT("%s?listen"), *LobbyPath);
+}
+
+void UMenu::PrepareUI()
+{
+	AddToViewport();
+	SetVisibility(ESlateVisibility::Visible);
+	SetIsFocusable(true);
+	SetupInputMode();
+}
+
+void UMenu::SetupInputMode()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (APlayerController* PlayerController = World->GetFirstPlayerController())
+		{
+			FInputModeUIOnly InputModeData;
+			InputModeData.SetWidgetToFocus(TakeWidget());
+			InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+			PlayerController->SetInputMode(InputModeData);
+			PlayerController->SetShowMouseCursor(true);
+		}
+	}
+}
+
+void UMenu::BindSessionEvents()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		// 멀티플레이어 세션 서브시스템의 커스텀 델리게이트들에 함수 연결
+		if (MultiplayerSessionsSubsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>())
+		{
+			MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &ThisClass::OnCreateSession);
+			MultiplayerSessionsSubsystem->MultiplayerOnFindSessionsComplete.AddUObject(this, &ThisClass::OnFindSessions);
+			MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &ThisClass::OnJoinSession);
+			MultiplayerSessionsSubsystem->MultiplayerOnDestroySessionComplete.AddDynamic(this, &ThisClass::OnDestroySession);
+			MultiplayerSessionsSubsystem->MultiplayerOnStartSessionComplete.AddDynamic(this, &ThisClass::OnStartSession);
+		}
+	}
+}
+
+void UMenu::MenuTearDown()
+{
+	RemoveFromParent();
+	ResetInputMode();
+}
+
+void UMenu::ResetInputMode()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (APlayerController* PlayerController = World->GetFirstPlayerController())
+		{
+			FInputModeGameOnly InputModeData;
+			PlayerController->SetInputMode(InputModeData);
+			PlayerController->SetShowMouseCursor(false);
+		}
+	}
 }
 
 void UMenu::OnCreateSession(bool bWasSuccessful)
@@ -49,8 +159,7 @@ void UMenu::OnCreateSession(bool bWasSuccessful)
 		}
 
 		// 세션 생성이 성공하고 레벨 이동. 버튼 누르자마자 이동시키면 세션 생성이 제대로 안될 수 있음
-		UWorld* World = GetWorld();
-		if (World)
+		if (UWorld* World = GetWorld())
 		{
 			World->ServerTravel(PathToLobby);
 		}
@@ -105,8 +214,7 @@ void UMenu::OnJoinSession(EOnJoinSessionCompleteResult::Type Result)
 {
 	// 멀티플레이어 세션 서브시스템이 세션 가입이 끝나면 수행
 	// 온라인 서브 시스템을 가져와서 클라이언트를 세션에 연결
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
+	if (IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get())
 	{
 		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
 		if (SessionInterface.IsValid())
@@ -114,8 +222,7 @@ void UMenu::OnJoinSession(EOnJoinSessionCompleteResult::Type Result)
 			FString Address = FString();
 			SessionInterface->GetResolvedConnectString(NAME_GameSession, Address);
 
-			APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
-			if (PlayerController)
+			if (APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController())
 			{
 				PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
 			}
@@ -165,93 +272,6 @@ void UMenu::OnStartSession(bool bWasSuccessful)
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, TEXT("Failed to start session!"));
-		}
-	}
-}
-
-void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatch, const FString& LobbyPath)
-{
-	NumPublicConnections = NumberOfPublicConnections;
-	MatchType = TypeOfMatch;
-	PathToLobby = FString::Printf(TEXT("%s?listen"), *LobbyPath);
-
-	AddToViewport();
-	SetVisibility(ESlateVisibility::Visible);
-	SetIsFocusable(true);
-
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		APlayerController* PlayerController = World->GetFirstPlayerController();
-		if (PlayerController)
-		{
-			FInputModeUIOnly InputModeData;
-			InputModeData.SetWidgetToFocus(TakeWidget());
-			InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-			PlayerController->SetInputMode(InputModeData);
-			PlayerController->SetShowMouseCursor(true);
-		}
-	}
-
-	UGameInstance* GameInstance = GetGameInstance();
-	if (GameInstance)
-	{
-		MultiplayerSessionsSubsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
-	}
-
-	// 멀티플레이어 세션 서브시스템의 커스텀 델리게이트들에 함수 연결
-	if (MultiplayerSessionsSubsystem)
-	{
-		MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &ThisClass::OnCreateSession);
-		MultiplayerSessionsSubsystem->MultiplayerOnFindSessionsComplete.AddUObject(this, &ThisClass::OnFindSessions);
-		MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &ThisClass::OnJoinSession);
-		MultiplayerSessionsSubsystem->MultiplayerOnDestroySessionComplete.AddDynamic(this, &ThisClass::OnDestroySession);
-		MultiplayerSessionsSubsystem->MultiplayerOnStartSessionComplete.AddDynamic(this, &ThisClass::OnStartSession);
-	}
-}
-
-void UMenu::HostButtonClicked()
-{
-	if (HostButton)
-	{
-		HostButton->SetIsEnabled(false);
-	}
-
-	// Host 버튼을 눌러서 멀티플레이어 세션 서브시스템에서 세션 생성 수행
-	if (MultiplayerSessionsSubsystem)
-	{
-		// 게임 인원과 게임 방식을 저장
-		MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
-	}
-}
-
-void UMenu::JoinButtonClicked()
-{
-	if (JoinButton)
-	{
-		JoinButton->SetIsEnabled(false);
-	}
-
-	// Host 버튼을 눌러서 멀티플레이어 세션 서브시스템에서 세션 찾기 수행
-	if (MultiplayerSessionsSubsystem)
-	{
-		MultiplayerSessionsSubsystem->FindSessions(10000);
-	}
-}
-
-void UMenu::MenuTearDown()
-{
-	RemoveFromParent();
-
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		APlayerController* PlayerController = World->GetFirstPlayerController();
-		if (PlayerController)
-		{
-			FInputModeGameOnly InputModeData;
-			PlayerController->SetInputMode(InputModeData);
-			PlayerController->SetShowMouseCursor(false);
 		}
 	}
 }

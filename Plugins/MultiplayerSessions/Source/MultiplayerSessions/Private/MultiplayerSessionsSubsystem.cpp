@@ -11,12 +11,8 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem()
 	, JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete))
 	, DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete))
 	, StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete))
-	, bCreateSessionOnDestroy(false)
-	, DesiredNumPublicConnections(0)
-	, DesiredMatchType(FString())
 {
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
+	if (IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get())
 	{
 		SessionInterface = OnlineSubsystem->GetSessionInterface();
 	}
@@ -28,15 +24,14 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	DesiredNumPublicConnections = NumPublicConnections;
 	DesiredMatchType = MatchType;
 
-	if (!SessionInterface.IsValid())
+	if (!SessionInterface.IsValid() || !GetWorld())
 	{
 		MultiplayerOnCreateSessionComplete.Broadcast(false);
 		return;
 	}
 
 	// 기존에 세션이 있으면 세션 제거
-	FNamedOnlineSession* ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
-	if (ExistingSession)
+	if (FNamedOnlineSession* ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession))
 	{
 		bCreateSessionOnDestroy = true;
 		LastNumPublicConnections = NumPublicConnections;
@@ -56,6 +51,12 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 		return;
 	}
 
+	ConfigureSessionSettings(NumPublicConnections, MatchType);
+	StartSessionCreation();
+}
+
+void UMultiplayerSessionsSubsystem::ConfigureSessionSettings(int32 NumPublicConnections, const FString& MatchType)
+{
 	// 랜매칭 허용 여부
 	LastSessionSettings->bIsLANMatch = IOnlineSubsystem::Get()->GetSubsystemName() == TEXT("NULL") ? true : false;
 	// 세션에 참가할 수 있는 인원수
@@ -74,13 +75,10 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	LastSessionSettings->BuildUniqueId = 1;
 
 	LastSessionSettings->Set(TEXT("MatchType"), MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+}
 
-	if (!GetWorld())
-	{
-		MultiplayerOnCreateSessionComplete.Broadcast(false);
-		return;
-	}
-
+void UMultiplayerSessionsSubsystem::StartSessionCreation()
+{
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!LocalPlayer)
 	{
@@ -101,7 +99,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 {
-	if (!SessionInterface.IsValid())
+	if (!SessionInterface.IsValid() || !GetWorld())
 	{
 		MultiplayerOnFindSessionsComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
 		return;
@@ -121,12 +119,6 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 	LastSessionSearch->MaxSearchResults = MaxSearchResults;
 	LastSessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == TEXT("NULL") ? true : false;
 	LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
-
-	if (!GetWorld())
-	{
-		MultiplayerOnFindSessionsComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
-		return;
-	}
 
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!LocalPlayer)
@@ -148,7 +140,7 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 
 void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult& SessionResult)
 {
-	if (!SessionInterface.IsValid())
+	if (!SessionInterface.IsValid() || !GetWorld())
 	{
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 		return;
@@ -156,12 +148,6 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 
 	// 세션 가입에 대한 델리게이트 연결
 	JoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
-
-	if (!GetWorld())
-	{
-		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
-		return;
-	}
 
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!LocalPlayer)

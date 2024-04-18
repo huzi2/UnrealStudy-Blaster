@@ -17,26 +17,6 @@
 #include "Weapon/Shotgun.h"
 
 UCombatComponent::UCombatComponent()
-	: bAiming(false)
-	, BaseWalkSpeed(600.f)
-	, AimWalkSpeed(450.f)
-	, ZoomedFOV(30.f)
-	, ZoomInterpSpeed(20.f)
-	, StartingARAmmo(30)
-	, StartingRocketAmmo(0)
-	, StartingPistolAmmo(0)
-	, StartingSMGAmmo(0)
-	, StartingShotgunAmmo(0)
-	, StartingSniperAmmo(0)
-	, StartingGrenaderLauncherAmmo(0)
-	, MaxGrenades(4)
-	, MaxCarriedAmmo(500)
-	, CombatState(ECombatState::ECS_Unoccupied)
-	, Grenades(4)
-	, bHoldingTheFlag(false)
-	, bCanFire(true)
-	, bAimButtonPressed(false)
-	, bLocallyReloading(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -106,199 +86,6 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UCombatComponent, bHoldingTheFlag);
 }
 
-void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
-{
-	bAiming = bIsAiming;
-
-	if (Character && Character->GetCharacterMovement())
-	{
-		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
-	}
-}
-
-void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
-{
-	// 멀티캐스트는 서버만 호출할 수 있음. 그래서 서버에서 처리
-	// 멀티캐스트를 통해 서버에서도 호출되므로 여기서 따로 또 발사를 할 필요는 없다.
-	MulticastFire(TraceHitTarget);
-}
-
-bool UCombatComponent::ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
-{
-	if (EquippedWeapon)
-	{
-		// 실제 발사딜레이와 서버로 넘어온 발사딜레이 값을 비교해서 치팅이 있었는지 확인
-		const bool bNearlyEqual = FMath::IsNearlyEqual(EquippedWeapon->GetFireDelay(), FireDelay, 0.001f);
-		return bNearlyEqual;
-	}
-	return true;
-}
-
-void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
-{
-	// 다른 클라들도 해당 로컬 클라가 쏘는 모션과 이펙트를 봐야하므로 다른 모든 클라와 서버에서 재생
-	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
-
-	// 클라이언트가 조종하는 경우에 수행
-	LocalFire(TraceHitTarget);
-}
-
-void UCombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
-{
-	MulticastShotgunFire(TraceHitTargets);
-}
-
-bool UCombatComponent::ServerShotgunFire_Validate(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
-{
-	if (EquippedWeapon)
-	{
-		// 실제 발사딜레이와 서버로 넘어온 발사딜레이 값을 비교해서 치팅이 있었는지 확인
-		const bool bNearlyEqual = FMath::IsNearlyEqual(EquippedWeapon->GetFireDelay(), FireDelay, 0.001f);
-		return bNearlyEqual;
-	}
-	return true;
-}
-
-void UCombatComponent::MulticastShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets)
-{
-	// 다른 클라들도 해당 로컬 클라가 쏘는 모션과 이펙트를 봐야하므로 다른 모든 클라와 서버에서 재생
-	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
-
-	LocalShotgunFire(TraceHitTargets);
-}
-
-void UCombatComponent::ServerReload_Implementation()
-{
-	// 재장전시 서버에서 하는 행동들임
-	// 클라는 CombatState를 수정하면서 OnRep_CombatState()를 통해 수행
-	CombatState = ECombatState::ECS_Reloading;
-	// 서버에서 조종하는 경우 두 번 호출되는 것 방지. 이미 Reload에서 호출 중임
-	if(Character && !Character->IsLocallyControlled()) HandleReload();
-}
-
-void UCombatComponent::ServerThrowGrenade_Implementation()
-{
-	if (Grenades <= 0) return;
-	if (!Character) return;
-
-	// .상태를 변경해서 다른 클라들도 OnRep_CombatState를 통해서 수류탄을 던질 수 있게함
-	CombatState = ECombatState::ECS_ThrowingGrenade;
-
-	Character->PlayThrowGrenadeMontage();
-
-	AttachActorToLeftHand(EquippedWeapon);
-
-	ShowAttachedGrenade(true);
-
-	// 서버에서는 추가로 수류탄의 개수를 조정한다. 이 변수는 레플리케이션되는 변수라 클라들도 알게됨
-	Grenades = FMath::Clamp(Grenades - 1, 0, MaxGrenades);
-	UpdateHUDGrenades();
-}
-
-void UCombatComponent::ServerLaunchGrenade_Implementation(const FVector_NetQuantize& Target)
-{
-	if (Character && Character->GetAttachedGrenade() && GrenadeClass)
-	{
-		if (UWorld* World = GetWorld())
-		{
-			const FVector StartingLocation = Character->GetAttachedGrenade()->GetComponentLocation();
-			// 방향은 십자선 기준
-			const FVector ToTarget = Target - StartingLocation;
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = Character;
-			SpawnParams.Instigator = Character;
-
-			World->SpawnActor<AProjectile>(GrenadeClass, StartingLocation, ToTarget.Rotation(), SpawnParams);
-		}
-	}
-}
-
-void UCombatComponent::FinishReloading()
-{
-	// 애니메이션 블루프린트에서 리로드 모션 끝나면 호출할 함수
-	if (!Character) return;
-
-	bLocallyReloading = false;
-
-	// 탄약 갱신은 서버에서만 작동
-	if (Character->HasAuthority())
-	{
-		CombatState = ECombatState::ECS_Unoccupied;
-
-		// 액션 끝나면서 탄약 수 갱신
-		UpdateAmmoValues();
-	}
-
-	// CombatState 바뀌기전에 발사 버튼 눌렀을 때 문제가 생길 수 있어서 작성
-	if (bFireButtonPressed)
-	{
-		Fire();
-	}
-}
-
-void UCombatComponent::ShotgunShellReload()
-{
-	// 샷건 탄약 채우는 건 서버에서만 발동
-	if (Character && Character->HasAuthority())
-	{
-		UpdateShotgunAmmoValues();
-	}
-}
-
-void UCombatComponent::ThrowGrenadeFinished()
-{
-	CombatState = ECombatState::ECS_Unoccupied;
-
-	// 왼손으로 잠시 들었던 무기 다시 오른손으로
-	AttachActorToRightHand(EquippedWeapon);
-}
-
-void UCombatComponent::LaunchGrenade()
-{
-	ShowAttachedGrenade(false);
-
-	// HitTarget 변수는 서버에서만, 그리고 로컬 클라에서만 계산된다.
-	if (Character && Character->IsLocallyControlled())
-	{
-		// 수류탄 생성은 서버에서
-		ServerLaunchGrenade(HitTarget);
-	}
-}
-
-void UCombatComponent::FinishSwapAttachWeapons()
-{
-	if (!EquippedWeapon) return;
-	if (!SecondaryWeapon) return;
-
-	std::swap(EquippedWeapon, SecondaryWeapon);
-
-	// 기존 보조무기를 오른손에 장착하고 HUD 업데이트
-	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-	AttachActorToRightHand(EquippedWeapon);
-	EquippedWeapon->SetHUDAmmo();
-	UpdateCarriedAmmo();
-	PlayEquipWeaponSound(EquippedWeapon);
-
-	// 기존 메인무기를 배낭에 장착
-	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
-	AttachActorToBackpack(SecondaryWeapon);
-}
-
-void UCombatComponent::FinishSwap()
-{
-	CombatState = ECombatState::ECS_Unoccupied;
-
-	if (Character)
-	{
-		Character->SetIsbFinishedSwapping(true);
-	}
-
-	if (SecondaryWeapon)
-	{
-		SecondaryWeapon->EnableCustomDepth(true);
-	}
-}
-
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!WeaponToEquip) return;
@@ -356,6 +143,11 @@ void UCombatComponent::SwapWeapons()
 	}
 }
 
+bool UCombatComponent::ShouldSwapWeapons() const
+{
+	return EquippedWeapon && SecondaryWeapon;
+}
+
 void UCombatComponent::SetAiming(bool bIsAiming)
 {
 	if (!Character) return;
@@ -407,26 +199,13 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	}
 }
 
-void UCombatComponent::JumpToShotgunEnd()
-{
-	if (!Character) return;
-	if (!Character->GetMesh()) return;
-	if (!Character->GetReloadMontage()) return;
-
-	UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance();
-	if (AnimInstance && Character->GetReloadMontage())
-	{
-		AnimInstance->Montage_JumpToSection(TEXT("ShotgunEnd"));
-	}
-}
-
 void UCombatComponent::ThrowGrenade()
 {
 	if (Grenades <= 0) return;
 	if (!Character) return;
 	if (!EquippedWeapon) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
-	
+
 	// 캐릭터에서 버튼 누르면서 호출하는 함수로 로컬 클라이언트에서 실행됨
 	CombatState = ECombatState::ECS_ThrowingGrenade;
 
@@ -466,9 +245,24 @@ void UCombatComponent::PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount)
 	}
 }
 
-bool UCombatComponent::ShouldSwapWeapons() const
+void UCombatComponent::JumpToShotgunEnd()
 {
-	return EquippedWeapon && SecondaryWeapon;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+	if (!Character->GetReloadMontage()) return;
+
+	if (UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->Montage_JumpToSection(TEXT("ShotgunEnd"));
+	}
+}
+
+void UCombatComponent::CheckInit()
+{
+	if (!Controller)
+	{
+		Controller = Cast<ABlasterPlayerController>(Character->Controller);
+	}
 }
 
 void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
@@ -485,7 +279,7 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 	FVector CrosshairWorldDirection;
 
 	// 뷰포트 좌표를 월드 좌표로 변환
-	bool bScreenToWorld = UGameplayStatics::DeprojectScreenToWorld(UGameplayStatics::GetPlayerController(this, 0), CrosshairLocation, CrosshairWorldPosition, CrosshairWorldDirection);
+	const bool bScreenToWorld = UGameplayStatics::DeprojectScreenToWorld(UGameplayStatics::GetPlayerController(this, 0), CrosshairLocation, CrosshairWorldPosition, CrosshairWorldDirection);
 	if (bScreenToWorld)
 	{
 		FVector Start = CrosshairWorldPosition;
@@ -589,6 +383,140 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 	}
 }
 
+void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip)
+{
+	if (!WeaponToEquip) return;
+
+	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
+	DropEquippedWeapon();
+
+	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
+	// 하지만 아래 내용이 적용되고 복사될 지, 복사 먼저되서 내용 적용이 안될지는 레플리케이션 타이밍에 따라 다름
+	// 그래서 아래 내용은 OnRep에서 한번 더 수행한다.
+	EquippedWeapon = WeaponToEquip;
+	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+
+	// 무기를 오른손에 붙임
+	AttachActorToRightHand(EquippedWeapon);
+
+	// Owner은 서버에서 세팅하고 클라에 레플리케이션되는 변수
+	EquippedWeapon->SetOwner(Character);
+	// 서버에 탄약 적용
+	EquippedWeapon->SetHUDAmmo();
+
+	// 무기 타입에 따라 가지고 있는 탄약 표시
+	UpdateCarriedAmmo();
+
+	PlayEquipWeaponSound(EquippedWeapon);
+
+	// 무기 장착 후 탄약이 없으면 자동 재장전
+	ReloadEmptyWeapon();
+}
+
+void UCombatComponent::EquipSecondaryWeapon(AWeapon* WeaponToEquip)
+{
+	if (!WeaponToEquip) return;
+
+	SecondaryWeapon = WeaponToEquip;
+	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
+
+	// 무기를 백팩에 붙임
+	AttachActorToBackpack(WeaponToEquip);
+
+	SecondaryWeapon->SetOwner(Character);
+
+	PlayEquipWeaponSound(SecondaryWeapon);
+}
+
+void UCombatComponent::DropEquippedWeapon()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Dropped();
+	}
+}
+
+void UCombatComponent::AttachActorToRightHand(AActor* ActorToAttach)
+{
+	if (!ActorToAttach) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	if (const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("RightHandSocket")))
+	{
+		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
+	}
+}
+
+void UCombatComponent::AttachActorToLeftHand(AActor* ActorToAttach)
+{
+	if (!ActorToAttach) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	if (const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("LeftHandSocket")))
+	{
+		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
+	}
+}
+
+void UCombatComponent::AttachActorToBackpack(AActor* ActorToAttach)
+{
+	if (!ActorToAttach) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
+
+	if (const USkeletalMeshSocket* BackpackSocket = Character->GetMesh()->GetSocketByName(TEXT("BackpackSocket")))
+	{
+		BackpackSocket->AttachActor(ActorToAttach, Character->GetMesh());
+	}
+}
+
+void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
+{
+	if (!WeaponToEquip) return;
+	if (!Character) return;
+
+	if (WeaponToEquip->GetEquipSound())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, WeaponToEquip->GetEquipSound(), Character->GetActorLocation());
+	}
+}
+
+void UCombatComponent::FinishSwapAttachWeapons()
+{
+	if (!EquippedWeapon) return;
+	if (!SecondaryWeapon) return;
+
+	Swap(EquippedWeapon, SecondaryWeapon);
+
+	// 기존 보조무기를 오른손에 장착하고 HUD 업데이트
+	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+	AttachActorToRightHand(EquippedWeapon);
+	EquippedWeapon->SetHUDAmmo();
+	UpdateCarriedAmmo();
+	PlayEquipWeaponSound(EquippedWeapon);
+
+	// 기존 메인무기를 배낭에 장착
+	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
+	AttachActorToBackpack(SecondaryWeapon);
+}
+
+void UCombatComponent::FinishSwap()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+
+	if (Character)
+	{
+		Character->SetIsbFinishedSwapping(true);
+	}
+
+	if (SecondaryWeapon)
+	{
+		SecondaryWeapon->EnableCustomDepth(true);
+	}
+}
+
 void UCombatComponent::InterpFOV(float DeltaTime)
 {
 	if (!EquippedWeapon) return;
@@ -607,6 +535,156 @@ void UCombatComponent::InterpFOV(float DeltaTime)
 	}
 
 	Character->GetFollowCamera()->SetFieldOfView(CurrentFOV);
+}
+
+void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
+{
+	bAiming = bIsAiming;
+
+	if (Character && Character->GetCharacterMovement())
+	{
+		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
+}
+
+void UCombatComponent::FinishReloading()
+{
+	// 애니메이션 블루프린트에서 리로드 모션 끝나면 호출할 함수
+	if (!Character) return;
+
+	bLocallyReloading = false;
+
+	// 탄약 갱신은 서버에서만 작동
+	if (Character->HasAuthority())
+	{
+		CombatState = ECombatState::ECS_Unoccupied;
+
+		// 액션 끝나면서 탄약 수 갱신
+		UpdateAmmoValues();
+	}
+
+	// CombatState 바뀌기전에 발사 버튼 눌렀을 때 문제가 생길 수 있어서 작성
+	if (bFireButtonPressed)
+	{
+		Fire();
+	}
+}
+
+void UCombatComponent::ShotgunShellReload()
+{
+	// 샷건 탄약 채우는 건 서버에서만 발동
+	if (Character && Character->HasAuthority())
+	{
+		UpdateShotgunAmmoValues();
+	}
+}
+
+void UCombatComponent::ServerReload_Implementation()
+{
+	// 재장전시 서버에서 하는 행동들임
+	// 클라는 CombatState를 수정하면서 OnRep_CombatState()를 통해 수행
+	CombatState = ECombatState::ECS_Reloading;
+	// 서버에서 조종하는 경우 두 번 호출되는 것 방지. 이미 Reload에서 호출 중임
+	if (Character && !Character->IsLocallyControlled()) HandleReload();
+}
+
+void UCombatComponent::HandleReload()
+{
+	if (!Character) return;
+	// 리로드하면서 서버, 클라가 다 해야하는 작업 정리
+	Character->PlayReloadMontage();
+}
+
+int32 UCombatComponent::AmountToReload() const
+{
+	if (!EquippedWeapon) return 0;
+
+	// 장전했을 때 장전할 탄약 수 계산
+
+	// 현재 탄창에 남은 공간
+	const int32 RoomInMsg = EquippedWeapon->GetMagCapacity() - EquippedWeapon->GetAmmo();
+
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		// 플레이어가 현재 무기 타입의 탄약을 가지고 있는 양
+		const int32 AmountCarried = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		const int32 Least = FMath::Min(RoomInMsg, AmountCarried);
+		return FMath::Clamp(RoomInMsg, 0, Least);
+	}
+	return 0;
+}
+
+void UCombatComponent::ReloadEmptyWeapon()
+{
+	if (EquippedWeapon && EquippedWeapon->IsEmpty())
+	{
+		Reload();
+	}
+}
+
+bool UCombatComponent::CanFire() const
+{
+	if (!EquippedWeapon) return false;
+	if (EquippedWeapon->IsEmpty()) return false;
+	if (!bCanFire) return false;
+
+	// 샷건은 장전 중에 쏠 수 있음
+	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true;
+
+	if (bLocallyReloading) return false;
+	if (CombatState != ECombatState::ECS_Unoccupied) return false;
+	return true;
+}
+
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
+{
+	// 멀티캐스트는 서버만 호출할 수 있음. 그래서 서버에서 처리
+	// 멀티캐스트를 통해 서버에서도 호출되므로 여기서 따로 또 발사를 할 필요는 없다.
+	MulticastFire(TraceHitTarget);
+}
+
+bool UCombatComponent::ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
+{
+	if (EquippedWeapon)
+	{
+		// 실제 발사딜레이와 서버로 넘어온 발사딜레이 값을 비교해서 치팅이 있었는지 확인
+		const bool bNearlyEqual = FMath::IsNearlyEqual(EquippedWeapon->GetFireDelay(), FireDelay, 0.001f);
+		return bNearlyEqual;
+	}
+	return true;
+}
+
+void UCombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
+{
+	MulticastShotgunFire(TraceHitTargets);
+}
+
+bool UCombatComponent::ServerShotgunFire_Validate(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
+{
+	if (EquippedWeapon)
+	{
+		// 실제 발사딜레이와 서버로 넘어온 발사딜레이 값을 비교해서 치팅이 있었는지 확인
+		const bool bNearlyEqual = FMath::IsNearlyEqual(EquippedWeapon->GetFireDelay(), FireDelay, 0.001f);
+		return bNearlyEqual;
+	}
+	return true;
+}
+
+void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+{
+	// 다른 클라들도 해당 로컬 클라가 쏘는 모션과 이펙트를 봐야하므로 다른 모든 클라와 서버에서 재생
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+
+	// 클라이언트가 조종하는 경우에 수행
+	LocalFire(TraceHitTarget);
+}
+
+void UCombatComponent::MulticastShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets)
+{
+	// 다른 클라들도 해당 로컬 클라가 쏘는 모션과 이펙트를 봐야하므로 다른 모든 클라와 서버에서 재생
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+
+	LocalShotgunFire(TraceHitTargets);
 }
 
 void UCombatComponent::Fire()
@@ -647,9 +725,9 @@ void UCombatComponent::FireProjectileWeapon()
 		// 분산 공격 계산을 서버에서 하고 그 HitTarget을 공유함으로써 서버와 클라 모두 같은 방사형 공격을 한다.
 		// 발사체 무기도 UseScatter을 체크하면 방사하면서 공격할 수 있다.
 		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
-		
+
 		// 서버에서는 로컬 수행안함. 아래 ServerFire() -> MulticastFire()하면서 멀티캐스트에서 로컬을 이미 수행함
-		if(Character && !Character->HasAuthority()) LocalFire(HitTarget);
+		if (Character && !Character->HasAuthority()) LocalFire(HitTarget);
 		ServerFire(HitTarget, EquippedWeapon->GetFireDelay());
 	}
 }
@@ -660,7 +738,7 @@ void UCombatComponent::FireHitScanWeapon()
 	{
 		// 분산 공격 계산을 서버에서 하고 그 HitTarget을 공유함으로써 서버와 클라 모두 같은 방사형 공격을 한다.
 		HitTarget = EquippedWeapon->GetUseScatter() ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
-		
+
 		if (Character && !Character->HasAuthority()) LocalFire(HitTarget);
 		ServerFire(HitTarget, EquippedWeapon->GetFireDelay());
 	}
@@ -672,7 +750,7 @@ void UCombatComponent::FireShotgun()
 	{
 		TArray<FVector_NetQuantize> HitTargets;
 		Shotgun->ShotgunTraceEndWithScatter(HitTarget, HitTargets);
-		
+
 		if (Character && !Character->HasAuthority()) LocalShotgunFire(HitTargets);
 		ServerShotgunFire(HitTargets, Shotgun->GetFireDelay());
 	}
@@ -729,20 +807,6 @@ void UCombatComponent::FireTimerFinished()
 	ReloadEmptyWeapon();
 }
 
-bool UCombatComponent::CanFire() const
-{
-	if (!EquippedWeapon) return false;
-	if (EquippedWeapon->IsEmpty()) return false;
-	if (!bCanFire) return false;
-
-	// 샷건은 장전 중에 쏠 수 있음
-	if (CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true;
-
-	if (bLocallyReloading) return false;
-	if (CombatState != ECombatState::ECS_Unoccupied) return false;
-	return true;
-}
-
 void UCombatComponent::InitializeCarriedAmmo()
 {
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_AssaultRifle, StartingARAmmo);
@@ -752,40 +816,6 @@ void UCombatComponent::InitializeCarriedAmmo()
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_ShotGun, StartingShotgunAmmo);
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_SniperRifle, StartingSniperAmmo);
 	CarriedAmmoMap.Emplace(EWeaponType::EWT_GrenaderLauncher, StartingGrenaderLauncherAmmo);
-}
-
-void UCombatComponent::CheckInit()
-{
-	if (!Controller)
-	{
-		Controller = Cast<ABlasterPlayerController>(Character->Controller);
-	}
-}
-
-void UCombatComponent::HandleReload()
-{
-	if (!Character) return;
-	// 리로드하면서 서버, 클라가 다 해야하는 작업 정리
-	Character->PlayReloadMontage();
-}
-
-int32 UCombatComponent::AmountToReload() const
-{
-	if (!EquippedWeapon) return 0;
-
-	// 장전했을 때 장전할 탄약 수 계산
-
-	// 현재 탄창에 남은 공간
-	const int32 RoomInMsg = EquippedWeapon->GetMagCapacity() - EquippedWeapon->GetAmmo();
-
-	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
-	{
-		// 플레이어가 현재 무기 타입의 탄약을 가지고 있는 양
-		const int32 AmountCarried = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
-		const int32 Least = FMath::Min(RoomInMsg, AmountCarried);
-		return FMath::Clamp(RoomInMsg, 0, Least);
-	}
-	return 0;
 }
 
 void UCombatComponent::UpdateAmmoValues()
@@ -842,66 +872,6 @@ void UCombatComponent::UpdateShotgunAmmoValues()
 	}
 }
 
-void UCombatComponent::DropEquippedWedapon()
-{
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->Dropped();
-	}
-}
-
-void UCombatComponent::AttachActorToRightHand(AActor* ActorToAttach)
-{
-	if (!ActorToAttach) return;
-	if (!Character) return;
-	if (!Character->GetMesh()) return;
-
-	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("RightHandSocket"));
-	if (HandSocket)
-	{
-		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
-	}
-}
-
-void UCombatComponent::AttachActorToLeftHand(AActor* ActorToAttach)
-{
-	if (!ActorToAttach) return;
-	if (!Character) return;
-	if (!Character->GetMesh()) return;
-
-	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("LeftHandSocket"));
-	if (HandSocket)
-	{
-		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
-	}
-}
-
-void UCombatComponent::AttachActorToBackpack(AActor* ActorToAttach)
-{
-	if (!ActorToAttach) return;
-	if (!Character) return;
-	if (!Character->GetMesh()) return;
-
-	const USkeletalMeshSocket* BackpackSocket = Character->GetMesh()->GetSocketByName(TEXT("BackpackSocket"));
-	if (BackpackSocket)
-	{
-		BackpackSocket->AttachActor(ActorToAttach, Character->GetMesh());
-	}
-}
-
-void UCombatComponent::AttachFlagToLeftHand(AWeapon* Flag)
-{
-	if (!Flag) return;
-	if (!Character) return;
-	if (!Character->GetMesh()) return;
-
-	const USkeletalMeshSocket* FlagSocket = Character->GetMesh()->GetSocketByName(TEXT("FlagSocket"));
-	if (FlagSocket)
-	{
-		FlagSocket->AttachActor(Flag, Character->GetMesh());
-	}
-}
-
 void UCombatComponent::UpdateCarriedAmmo()
 {
 	if (!EquippedWeapon) return;
@@ -918,23 +888,61 @@ void UCombatComponent::UpdateCarriedAmmo()
 	}
 }
 
-void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
+void UCombatComponent::LaunchGrenade()
 {
-	if (!WeaponToEquip) return;
-	if (!Character) return;
+	ShowAttachedGrenade(false);
 
-	if (WeaponToEquip->GetEquipSound())
+	// HitTarget 변수는 서버에서만, 그리고 로컬 클라에서만 계산된다.
+	if (Character && Character->IsLocallyControlled())
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, WeaponToEquip->GetEquipSound(), Character->GetActorLocation());
+		// 수류탄 생성은 서버에서
+		ServerLaunchGrenade(HitTarget);
 	}
 }
 
-void UCombatComponent::ReloadEmptyWeapon()
+void UCombatComponent::ServerThrowGrenade_Implementation()
 {
-	if (EquippedWeapon && EquippedWeapon->IsEmpty())
+	if (Grenades <= 0) return;
+	if (!Character) return;
+
+	// .상태를 변경해서 다른 클라들도 OnRep_CombatState를 통해서 수류탄을 던질 수 있게함
+	CombatState = ECombatState::ECS_ThrowingGrenade;
+
+	Character->PlayThrowGrenadeMontage();
+
+	AttachActorToLeftHand(EquippedWeapon);
+
+	ShowAttachedGrenade(true);
+
+	// 서버에서는 추가로 수류탄의 개수를 조정한다. 이 변수는 레플리케이션되는 변수라 클라들도 알게됨
+	Grenades = FMath::Clamp(Grenades - 1, 0, MaxGrenades);
+	UpdateHUDGrenades();
+}
+
+void UCombatComponent::ServerLaunchGrenade_Implementation(const FVector_NetQuantize& Target)
+{
+	if (Character && Character->GetAttachedGrenade() && GrenadeClass)
 	{
-		Reload();
+		if (UWorld* World = GetWorld())
+		{
+			const FVector StartingLocation = Character->GetAttachedGrenade()->GetComponentLocation();
+			// 방향은 십자선 기준
+			const FVector ToTarget = Target - StartingLocation;
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = Character;
+			SpawnParams.Instigator = Character;
+
+			World->SpawnActor<AProjectile>(GrenadeClass, StartingLocation, ToTarget.Rotation(), SpawnParams);
+		}
 	}
+}
+
+void UCombatComponent::ThrowGrenadeFinished()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+
+	// 왼손으로 잠시 들었던 무기 다시 오른손으로
+	AttachActorToRightHand(EquippedWeapon);
 }
 
 void UCombatComponent::ShowAttachedGrenade(bool bShowGrenade)
@@ -954,117 +962,15 @@ void UCombatComponent::UpdateHUDGrenades()
 	}
 }
 
-void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip)
+void UCombatComponent::AttachFlagToLeftHand(AWeapon* Flag)
 {
-	if (!WeaponToEquip) return;
+	if (!Flag) return;
+	if (!Character) return;
+	if (!Character->GetMesh()) return;
 
-	// 무기를 이미 가지고 있는 경우 이전 무기는 드랍시킨다.
-	DropEquippedWedapon();
-
-	// 아래 내용은 EquippedWeapon이 레플리케이션되면서 클라이언트에게 복사된다.
-	// 하지만 아래 내용이 적용되고 복사될 지, 복사 먼저되서 내용 적용이 안될지는 레플리케이션 타이밍에 따라 다름
-	// 그래서 아래 내용은 OnRep에서 한번 더 수행한다.
-	EquippedWeapon = WeaponToEquip;
-	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-
-	// 무기를 오른손에 붙임
-	AttachActorToRightHand(EquippedWeapon);
-
-	// Owner은 서버에서 세팅하고 클라에 레플리케이션되는 변수
-	EquippedWeapon->SetOwner(Character);
-	// 서버에 탄약 적용
-	EquippedWeapon->SetHUDAmmo();
-
-	// 무기 타입에 따라 가지고 있는 탄약 표시
-	UpdateCarriedAmmo();
-
-	PlayEquipWeaponSound(EquippedWeapon);
-
-	// 무기 장착 후 탄약이 없으면 자동 재장전
-	ReloadEmptyWeapon();
-}
-
-void UCombatComponent::EquipSecondaryWeapon(AWeapon* WeaponToEquip)
-{
-	if (!WeaponToEquip) return;
-
-	SecondaryWeapon = WeaponToEquip;
-	SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
-
-	// 무기를 백팩에 붙임
-	AttachActorToBackpack(WeaponToEquip);
-
-	SecondaryWeapon->SetOwner(Character);
-
-	PlayEquipWeaponSound(SecondaryWeapon);
-}
-
-void UCombatComponent::OnRep_EquippedWeapon()
-{
-	bCanFire = true;
-	// 다른 클라이언트에서도 무기들었을 때 회전하지 않도록 함
-	if (EquippedWeapon && Character)
+	if (const USkeletalMeshSocket* FlagSocket = Character->GetMesh()->GetSocketByName(TEXT("FlagSocket")))
 	{
-		// 아래 내용은 EquippedWeapon을 레플리케이션할 때 적용되었을 수도 있지만 타이밍에 따라 안될수도 있어서 한번 더 적용
-		EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-
-		AttachActorToRightHand(EquippedWeapon);
-
-		PlayEquipWeaponSound(EquippedWeapon);
-
-		EquippedWeapon->SetHUDAmmo();
-
-		if (Character->GetCharacterMovement())
-		{
-			Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-			Character->bUseControllerRotationYaw = true;
-		}
-	}
-}
-
-void UCombatComponent::OnRep_SecondaryWeapon()
-{
-	if (SecondaryWeapon && Character)
-	{
-		SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
-
-		AttachActorToBackpack(SecondaryWeapon);
-
-		PlayEquipWeaponSound(SecondaryWeapon);
-	}
-}
-
-void UCombatComponent::OnRep_TheFlag()
-{
-	if (TheFlag)
-	{
-		TheFlag->SetWeaponState(EWeaponState::EWS_Equipped);
-		AttachFlagToLeftHand(TheFlag);
-	}
-}
-
-void UCombatComponent::OnRep_Aiming()
-{
-	// 클라이언트가 렉이 심할 경우 에임 버튼이 계속 눌리는 문제 수정
-	if (Character && Character->IsLocallyControlled())
-	{
-		bAiming = bAimButtonPressed;
-	}
-}
-
-void UCombatComponent::OnRep_CarriedAmmo()
-{
-	// 클라에 무기 맥시멈 탄약수 설정
-	CheckInit();
-	if (Controller)
-	{
-		Controller->SetHUDCarriedAmmo(CarriedAmmo);
-	}
-
-	// 샷건 장전 중 장전할 탄약이 없으면 End 몽타주로 이동하는 부분 클라에서 수행
-	if (CarriedAmmo == 0 && CombatState == ECombatState::ECS_Reloading && EquippedWeapon && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
-	{
-		JumpToShotgunEnd();
+		FlagSocket->AttachActor(Flag, Character->GetMesh());
 	}
 }
 
@@ -1105,9 +1011,78 @@ void UCombatComponent::OnRep_CombatState()
 	}
 }
 
+void UCombatComponent::OnRep_EquippedWeapon()
+{
+	bCanFire = true;
+	// 다른 클라이언트에서도 무기들었을 때 회전하지 않도록 함
+	if (EquippedWeapon && Character)
+	{
+		// 아래 내용은 EquippedWeapon을 레플리케이션할 때 적용되었을 수도 있지만 타이밍에 따라 안될수도 있어서 한번 더 적용
+		EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+
+		AttachActorToRightHand(EquippedWeapon);
+
+		PlayEquipWeaponSound(EquippedWeapon);
+
+		EquippedWeapon->SetHUDAmmo();
+
+		if (Character->GetCharacterMovement())
+		{
+			Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+			Character->bUseControllerRotationYaw = true;
+		}
+	}
+}
+
+void UCombatComponent::OnRep_SecondaryWeapon()
+{
+	if (SecondaryWeapon && Character)
+	{
+		SecondaryWeapon->SetWeaponState(EWeaponState::EWS_EquippedSecondary);
+
+		AttachActorToBackpack(SecondaryWeapon);
+
+		PlayEquipWeaponSound(SecondaryWeapon);
+	}
+}
+
+void UCombatComponent::OnRep_Aiming()
+{
+	// 클라이언트가 렉이 심할 경우 에임 버튼이 계속 눌리는 문제 수정
+	if (Character && Character->IsLocallyControlled())
+	{
+		bAiming = bAimButtonPressed;
+	}
+}
+
+void UCombatComponent::OnRep_CarriedAmmo()
+{
+	// 클라에 무기 맥시멈 탄약수 설정
+	CheckInit();
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+
+	// 샷건 장전 중 장전할 탄약이 없으면 End 몽타주로 이동하는 부분 클라에서 수행
+	if (CarriedAmmo == 0 && CombatState == ECombatState::ECS_Reloading && EquippedWeapon && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
+	{
+		JumpToShotgunEnd();
+	}
+}
+
 void UCombatComponent::OnRep_Grenades()
 {
 	UpdateHUDGrenades();
+}
+
+void UCombatComponent::OnRep_TheFlag()
+{
+	if (TheFlag)
+	{
+		TheFlag->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachFlagToLeftHand(TheFlag);
+	}
 }
 
 void UCombatComponent::OnRep_HoldingTheFlag()

@@ -4,13 +4,9 @@
 #include "Character/BlasterCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
+constexpr float MIN_TIME = 0.01f;
+
 UBuffComponent::UBuffComponent()
-	: bHealing(false)
-	, HealingRate(0.f)
-	, AmountToHeal(0.f)
-	, bShieldReplenish(false)
-	, ShieldReplenishRate(0.f)
-	, AmountToShieldReplenish(0.f)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -19,34 +15,16 @@ void UBuffComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	// 틱마다 힐과 실드 회복
 	HealRampUp(DeltaTime);
 	ShieldReplenishRampUp(DeltaTime);
-}
-
-void UBuffComponent::MulticastSpeedBuff_Implementation(float BaseSpeedBuff, float CrouchSpeedBuff)
-{
-	if (!Character) return;
-	if (!Character->GetCharacterMovement()) return;
-
-	Character->GetCharacterMovement()->MaxWalkSpeed = BaseSpeedBuff;
-	Character->GetCharacterMovement()->MaxWalkSpeedCrouched = CrouchSpeedBuff;
-}
-
-void UBuffComponent::MulticastJumpBuff_Implementation(float JumpZVelocityBuff)
-{
-	if (!Character) return;
-	if (!Character->GetCharacterMovement()) return;
-
-	Character->GetCharacterMovement()->JumpZVelocity = JumpZVelocityBuff;
 }
 
 void UBuffComponent::Heal(float HealAmount, float HealingTime)
 {
 	bHealing = true;
 
-	if (HealingTime == 0.f) HealingTime = 1.f;
-
-	HealingRate = HealAmount / HealingTime;
+	HealingRate = HealAmount / FMath::Max(HealingTime, MIN_TIME);
 	AmountToHeal += HealAmount;
 }
 
@@ -54,13 +32,11 @@ void UBuffComponent::ReplenishShield(float ShieldReplenishAmount, float ShieldRe
 {
 	bShieldReplenish = true;
 
-	if (ShieldReplenishTime == 0.f) ShieldReplenishTime = 1.f;
-
-	ShieldReplenishRate = ShieldReplenishAmount / ShieldReplenishTime;
+	ShieldReplenishRate = ShieldReplenishAmount / FMath::Max(ShieldReplenishTime, MIN_TIME);
 	AmountToShieldReplenish += ShieldReplenishAmount;
 }
 
-void UBuffComponent::BuffSpped(float BaseSpeedBuff, float CrouchSpeedBuff, float SpeedBuffTime)
+void UBuffComponent::BuffSpeed(float BaseSpeedBuff, float CrouchSpeedBuff, float SpeedBuffTime)
 {
 	if (!Character) return;
 	if (!Character->GetCharacterMovement()) return;
@@ -72,6 +48,15 @@ void UBuffComponent::BuffSpped(float BaseSpeedBuff, float CrouchSpeedBuff, float
 
 	// 픽업 오브젝트 충돌 처리는 서버에서만 해서 위 내용은 서버만 적용된다. 그래서 모든 클라에게도 적용하기위해 멀티캐스트로 함수를 호출
 	MulticastSpeedBuff(BaseSpeedBuff, CrouchSpeedBuff);
+}
+
+void UBuffComponent::MulticastSpeedBuff_Implementation(float BaseSpeedBuff, float CrouchSpeedBuff)
+{
+	if (!Character) return;
+	if (!Character->GetCharacterMovement()) return;
+
+	Character->GetCharacterMovement()->MaxWalkSpeed = BaseSpeedBuff;
+	Character->GetCharacterMovement()->MaxWalkSpeedCrouched = CrouchSpeedBuff;
 }
 
 void UBuffComponent::SetInitialSpeeds(float BaseSpeed, float CrouchSpeed)
@@ -90,6 +75,14 @@ void UBuffComponent::BuffJump(float JumpZVelocityBuff, float JumpBuffTime)
 	Character->GetCharacterMovement()->JumpZVelocity = JumpZVelocityBuff;
 
 	MulticastJumpBuff(JumpZVelocityBuff);
+}
+
+void UBuffComponent::MulticastJumpBuff_Implementation(float JumpZVelocityBuff)
+{
+	if (!Character) return;
+	if (!Character->GetCharacterMovement()) return;
+
+	Character->GetCharacterMovement()->JumpZVelocity = JumpZVelocityBuff;
 }
 
 void UBuffComponent::SetInitialJumpVelocity(float Velocity)
