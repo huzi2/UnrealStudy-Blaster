@@ -1,5 +1,8 @@
 #pragma once
 
+/**
+ * ÆÀ Á¤º¸
+ */
 UENUM(BlueprintType)
 enum class ETeam : uint8
 {

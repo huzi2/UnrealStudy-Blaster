@@ -248,7 +248,7 @@ private:
 	UFUNCTION()
 	void OnRep_HoldingTheFlag();
 
-	// 참조들
+	// 참조 변수들
 	UPROPERTY()
 	TObjectPtr<ABlasterCharacter> Character;
 	UPROPERTY()

@@ -1,5 +1,8 @@
 #pragma once
 
+/**
+ * 캐릭터 회전 정보
+ */
 UENUM(BlueprintType)
 enum class ETurningInPlace : uint8
 {

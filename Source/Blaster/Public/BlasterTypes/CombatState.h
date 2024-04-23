@@ -1,5 +1,8 @@
 #pragma once
 
+/**
+ * 캐릭터의 전투 상태
+ */
 UENUM(BlueprintType)
 enum class ECombatState : uint8
 {

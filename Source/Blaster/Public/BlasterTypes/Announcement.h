@@ -1,5 +1,6 @@
 #pragma once
 
+// 알림으로 띄울 메시지
 namespace Announcement
 {
 	const FString NewMatchStartsIn(TEXT("New match starts In:"));
