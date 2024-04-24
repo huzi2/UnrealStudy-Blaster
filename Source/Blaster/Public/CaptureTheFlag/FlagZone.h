@@ -9,6 +9,9 @@
 
 class USphereComponent;
 
+/**
+ * ±ê¹ß °´Ã¼ Å¬·¡½º
+ */
 UCLASS()
 class BLASTER_API AFlagZone : public AActor
 {
@@ -18,19 +21,20 @@ private:
 	AFlagZone();
 
 private:
-	virtual void BeginPlay() override;
-
-private:
-	UFUNCTION()
-	void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void BeginPlay() final;
 
 public:
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 
 private:
+	UFUNCTION()
+	void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+private:
+	// ±ê¹ßÀ» ÁÖ¿ï ¼ö ÀÖ´Â ¹üÀ§
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USphereComponent> ZoneSphere;
-
+	// ±ê¹ßÀÇ ÆÀ
 	UPROPERTY(EditAnywhere)
 	ETeam Team;
 };

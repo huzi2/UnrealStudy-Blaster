@@ -33,17 +33,6 @@
 #include "InputActionValue.h"
 
 ABlasterCharacter::ABlasterCharacter()
-	: CameraThreshlod(200.0)
-	, MaxHealth(100.f)
-	, Health(100.f)
-	, MaxShield(100.f)
-	, Shield(0.f)
-	, ElimDelay(3.f)
-	, bDisableGameplay(false)
-	, TurnThreshold(0.5f)
-	, bElimmed(false)
-	, bFinishedSwapping(false)
-	, bLeftGame(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -92,6 +81,7 @@ ABlasterCharacter::ABlasterCharacter()
 	AttachedGrenade->SetupAttachment(GetMesh(), TEXT("GrenadeSocket"));
 	AttachedGrenade->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+	// 히트 박스들 생성
 	HitCollisionBoxes.Reserve(18);
 
 	head = CreateDefaultSubobject<UBoxComponent>("head");
@@ -177,6 +167,7 @@ ABlasterCharacter::ABlasterCharacter()
 		}
 	}
 
+	// 캐릭터의 업데이트 빈도 설정
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.f;
 }
@@ -334,6 +325,40 @@ void ABlasterCharacter::OnRep_ReplicatedMovement()
 	TimeSinceLastMovementReplication = 0.f;
 }
 
+AWeapon* ABlasterCharacter::GetEquippedWeapon() const
+{
+	if (!Combat) return nullptr;
+	return Combat->EquippedWeapon;
+}
+
+FVector ABlasterCharacter::GetHitTarget() const
+{
+	if (!Combat) return FVector();
+	return Combat->HitTarget;
+}
+
+ECombatState ABlasterCharacter::GetCombatState() const
+{
+	if (!Combat) return ECombatState::ECS_MAX;
+	return Combat->CombatState;
+}
+
+bool ABlasterCharacter::IsWeaponEquipped() const
+{
+	return Combat && Combat->EquippedWeapon;
+}
+
+bool ABlasterCharacter::IsAiming() const
+{
+	return Combat && Combat->bAiming;
+}
+
+bool ABlasterCharacter::IsLocallyReloading() const
+{
+	if (!Combat) return false;
+	return Combat->GetLocallyReloading();
+}
+
 void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 {
 	bLeftGame = bPlayerLeftGame;
@@ -417,6 +442,16 @@ void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 	GetWorldTimerManager().SetTimer(ElimTimer, this, &ThisClass::ElimTimerFinished, ElimDelay);
 }
 
+void ABlasterCharacter::Elim(bool bPlayerLeftGame)
+{
+	// 캐릭터가 죽는 처리는 서버에서 행한다.
+	// 무기를 떨어뜨리는 처리
+	DropOrDestroyWeapons();
+
+	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
+	MulticastElim(bPlayerLeftGame);
+}
+
 void ABlasterCharacter::ServerLeaveGame_Implementation()
 {
 	if (!GetWorld()) return;
@@ -453,132 +488,6 @@ void ABlasterCharacter::MulticastLostTheLead_Implementation()
 	{
 		CrownComponent->DestroyComponent();
 	}
-}
-
-void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
-{
-	if (Combat)
-	{
-		// 무기와 겹친 상태면 그 무기 장착
-		if (OverlappingWeapon)
-		{
-			Combat->EquipWeapon(OverlappingWeapon);
-		}
-		// 아닌 상태면 보조 무기와 스왑
-		else if (Combat->ShouldSwapWeapons())
-		{
-			Combat->SwapWeapons();
-		}
-	}
-}
-
-void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
-{
-	if (bElimmed) return;
-
-	PollInit();
-	if (!BlasterGameMode) return;
-
-	// 데미지 처리는 서버에서만 수행됨. 여기 내용들은 서버에서 실행된다.
-	// 게임모드를 통해서 아군일 경우 데미지 차단
-	float DamageToHealth = BlasterGameMode->CalculateDamage(InstigatorController, Controller, Damage);
-	if (DamageToHealth == 0.f) return;
-
-	if (Shield > 0.f)
-	{
-		if (Shield >= Damage)
-		{
-			Shield = FMath::Clamp(Shield - Damage, 0.f, MaxShield);
-			DamageToHealth = 0.f;
-		}
-		else
-		{
-			DamageToHealth = FMath::Clamp(DamageToHealth - Shield, 0.f, Damage);
-			Shield = 0.f;
-		}
-	}
-
-	Health = FMath::Clamp(Health - DamageToHealth, 0.f, MaxHealth);
-
-	UpdateHUDHealth();
-	UpdateHUDShield();
-	PlayHitReactMontage();
-
-	// 체력이 0이되면 게임모드에서 캐릭터 제거
-	// 게임모드는 오로지 서버에만 존재하기에 클라에서 호출하면 null이다.
-	// 어차피 데미지 처리 자체가 서버에서만 호출되기는함..
-	if (Health == 0.f)
-	{
-		if (GetWorld())
-		{
-			ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
-			InitPlayerController();
-			BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
-		}
-	}
-}
-
-void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
-{
-	if (DynamicDissolveMaterialInstance)
-	{
-		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
-	}
-}
-
-AWeapon* ABlasterCharacter::GetEquippedWeapon() const
-{
-	if (!Combat) return nullptr;
-	return Combat->EquippedWeapon;
-}
-
-FVector ABlasterCharacter::GetHitTarget() const
-{
-	if(!Combat) return FVector();
-	return Combat->HitTarget;
-}
-
-ECombatState ABlasterCharacter::GetCombatState() const
-{
-	if (!Combat) return ECombatState::ECS_MAX;
-	return Combat->CombatState;
-}
-
-ETeam ABlasterCharacter::GetTeam()
-{
-	PollInit();
-
-	if (BlasterPlayerState) return BlasterPlayerState->GetTeam();
-	return ETeam::ET_NoTeam;
-}
-
-void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
-{
-	// 충돌 처리는 서머만 하도록 해서 이 함수는 서버만 들어옴
-	// 클라들은 레플리케이트 처리되지만 서버는 여기서 처리
-	if (OverlappingWeapon)
-	{
-		OverlappingWeapon->ShowPickupWidget(false);
-	}
-
-	OverlappingWeapon = Weapon;
-	if (IsLocallyControlled())
-	{
-		if (OverlappingWeapon)
-		{
-			OverlappingWeapon->ShowPickupWidget(true);
-		}
-	}
-}
-
-bool ABlasterCharacter::IsWeaponEquipped() const
-{
-	return Combat && Combat->EquippedWeapon;
-}
-
-bool ABlasterCharacter::IsAiming() const
-{
-	return Combat && Combat->bAiming;
 }
 
 void ABlasterCharacter::PlayFireMontage(bool bAiming)
@@ -683,14 +592,23 @@ void ABlasterCharacter::PlaySwapMontage()
 	}
 }
 
-void ABlasterCharacter::Elim(bool bPlayerLeftGame)
+void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
-	// 캐릭터가 죽는 처리는 서버에서 행한다.
-	// 무기를 떨어뜨리는 처리
-	DropOrDestroyWeapons();
+	// 충돌 처리는 서머만 하도록 해서 이 함수는 서버만 들어옴
+	// 클라들은 레플리케이트 처리되지만 서버는 여기서 처리
+	if (OverlappingWeapon)
+	{
+		OverlappingWeapon->ShowPickupWidget(false);
+	}
 
-	// 하지만 죽으면서 애니메이션을 재생하는 등의 행위는 모든 클라가 해야되서 멀티캐스트 함수를 호출한다.
-	MulticastElim(bPlayerLeftGame);
+	OverlappingWeapon = Weapon;
+	if (IsLocallyControlled())
+	{
+		if (OverlappingWeapon)
+		{
+			OverlappingWeapon->ShowPickupWidget(true);
+		}
+	}
 }
 
 void ABlasterCharacter::UpdateHUDHealth()
@@ -729,10 +647,12 @@ void ABlasterCharacter::SpawnDefaultWeapon()
 	}
 }
 
-bool ABlasterCharacter::IsLocallyReloading() const
+ETeam ABlasterCharacter::GetTeam()
 {
-	if (!Combat) return false;
-	return Combat->GetLocallyReloading();
+	PollInit();
+
+	if (BlasterPlayerState) return BlasterPlayerState->GetTeam();
+	return ETeam::ET_NoTeam;
 }
 
 void ABlasterCharacter::SetTeamColor(ETeam Team)
@@ -788,6 +708,102 @@ void ABlasterCharacter::SetHoldingTheFlag(bool bHolding)
 	Combat->bHoldingTheFlag = bHolding;
 }
 
+void ABlasterCharacter::PollInit()
+{
+	// BlasterPlayerState를 초기화하면서 최초로 한번만 실행
+	if (!BlasterPlayerState)
+	{
+		if (BlasterPlayerState = GetPlayerState<ABlasterPlayerState>())
+		{
+			OnPlayerStateInitialized();
+		}
+
+		// 리스폰했을 때 점수가 리드상태였다면 왕관을 준다.
+		if (ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)))
+		{
+			if (BlasterGameState->GetTopScoringPlayers().Contains(BlasterPlayerState))
+			{
+				MulticastGainedTheLead();
+			}
+		}
+	}
+
+	if (!BlasterGameMode && GetWorld())
+	{
+		BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
+	}
+
+	InitPlayerController();
+}
+
+void ABlasterCharacter::InitPlayerController()
+{
+	if (!BlasterPlayerController)
+	{
+		if (BlasterPlayerController = Cast<ABlasterPlayerController>(Controller))
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(BlasterPlayerController->GetLocalPlayer()))
+			{
+				Subsystem->AddMappingContext(DefaultInputMappingContext, 0);
+			}
+		}
+	}
+}
+
+void ABlasterCharacter::OnPlayerStateInitialized()
+{
+	if (!BlasterPlayerState) return;
+
+	BlasterPlayerState->AddToScore(0.f);
+	BlasterPlayerState->AddToDefeats(0);
+	// 팀 색깔을 입히고
+	SetTeamColor(BlasterPlayerState->GetTeam());
+	// 스폰지점도 팀 스폰포인트로 지정
+	SetSpawnPoint();
+}
+
+void ABlasterCharacter::SetSpawnPoint()
+{
+	// 생성은 서버에서만 하니까 스폰포인트는 서버에서만 정하면 됨
+	if (HasAuthority() && BlasterPlayerState && BlasterPlayerState->GetTeam() != ETeam::ET_NoTeam)
+	{
+		TArray<AActor*> PlayerStarts;
+		UGameplayStatics::GetAllActorsOfClass(this, ATeamPlayerStart::StaticClass(), PlayerStarts);
+
+		// 팀 플레이어 스타트 포지션들을 확인
+		TArray<ATeamPlayerStart*> TeamPlayerStarts;
+		for (AActor* Start : PlayerStarts)
+		{
+			if (ATeamPlayerStart* TeamStart = Cast<ATeamPlayerStart>(Start))
+			{
+				if (TeamStart->GetTeam() == BlasterPlayerState->GetTeam())
+				{
+					TeamPlayerStarts.Add(TeamStart);
+				}
+			}
+		}
+
+		// 해당 위치로 플레이어의 위치를 옮긴다.
+		if (TeamPlayerStarts.Num() > 0)
+		{
+			if (ATeamPlayerStart* ChosenPlayerStart = TeamPlayerStarts[FMath::RandRange(0, TeamPlayerStarts.Num() - 1)])
+			{
+				SetActorLocationAndRotation(ChosenPlayerStart->GetActorLocation(), ChosenPlayerStart->GetActorRotation());
+			}
+		}
+	}
+}
+
+void ABlasterCharacter::UpdateHUDAmmo()
+{
+	InitPlayerController();
+	if (BlasterPlayerController && Combat && Combat->EquippedWeapon)
+	{
+		BlasterPlayerController->SetHUDWeaponAmmo(Combat->EquippedWeapon->GetAmmo());
+		BlasterPlayerController->SetHUDCarriedAmmo(Combat->CarriedAmmo);
+	}
+}
+
 void ABlasterCharacter::MoveForward(const FInputActionValue& Value)
 {
 	if (bDisableGameplay) return;
@@ -836,7 +852,7 @@ void ABlasterCharacter::EquipButtonPressed()
 {
 	if (bDisableGameplay) return;
 	if (Combat && Combat->bHoldingTheFlag) return;
-	
+
 	if (Combat && Combat->CombatState == ECombatState::ECS_Unoccupied)
 	{
 		// 서버에게 무기장착 요구. 서버면 바로 장착하고, 클라면 서버를 통해서 장착
@@ -848,6 +864,23 @@ void ABlasterCharacter::EquipButtonPressed()
 			PlaySwapMontage();
 			Combat->CombatState = ECombatState::ECS_SwappingWeapons;
 			bFinishedSwapping = false;
+		}
+	}
+}
+
+void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
+{
+	if (Combat)
+	{
+		// 무기와 겹친 상태면 그 무기 장착
+		if (OverlappingWeapon)
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		// 아닌 상태면 보조 무기와 스왑
+		else if (Combat->ShouldSwapWeapons())
+		{
+			Combat->SwapWeapons();
 		}
 	}
 }
@@ -933,17 +966,95 @@ void ABlasterCharacter::ThrowGrenadeButtonPressed()
 	}
 }
 
-void ABlasterCharacter::InitPlayerController()
+void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
 {
-	if (!BlasterPlayerController)
+	if (bElimmed) return;
+
+	PollInit();
+	if (!BlasterGameMode) return;
+
+	// 데미지 처리는 서버에서만 수행됨. 여기 내용들은 서버에서 실행된다.
+	// 게임모드를 통해서 아군일 경우 데미지 차단
+	float DamageToHealth = BlasterGameMode->CalculateDamage(InstigatorController, Controller, Damage);
+	if (DamageToHealth == 0.f) return;
+
+	if (Shield > 0.f)
 	{
-		if (BlasterPlayerController = Cast<ABlasterPlayerController>(Controller))
+		if (Shield >= Damage)
 		{
-			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(BlasterPlayerController->GetLocalPlayer()))
-			{
-				Subsystem->AddMappingContext(DefaultInputMappingContext, 0);
-			}
+			Shield = FMath::Clamp(Shield - Damage, 0.f, MaxShield);
+			DamageToHealth = 0.f;
 		}
+		else
+		{
+			DamageToHealth = FMath::Clamp(DamageToHealth - Shield, 0.f, Damage);
+			Shield = 0.f;
+		}
+	}
+
+	Health = FMath::Clamp(Health - DamageToHealth, 0.f, MaxHealth);
+
+	UpdateHUDHealth();
+	UpdateHUDShield();
+	PlayHitReactMontage();
+
+	// 체력이 0이되면 게임모드에서 캐릭터 제거
+	// 게임모드는 오로지 서버에만 존재하기에 클라에서 호출하면 null이다.
+	// 어차피 데미지 처리 자체가 서버에서만 호출되기는함..
+	if (Health == 0.f)
+	{
+		if (GetWorld())
+		{
+			ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
+			InitPlayerController();
+			BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
+		}
+	}
+}
+
+void ABlasterCharacter::StartDissolve()
+{
+	// 캐릭터가 죽고 사라지는 이펙트(머티리얼에 커브값을 줌)
+	DissolveTrack.BindDynamic(this, &ThisClass::UpdateDissolveMaterial);
+
+	if (DissolveTimeline && DissolveCurve)
+	{
+		DissolveTimeline->AddInterpFloat(DissolveCurve, DissolveTrack);
+		DissolveTimeline->Play();
+	}
+}
+
+void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
+{
+	if (DynamicDissolveMaterialInstance)
+	{
+		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+	}
+}
+
+void ABlasterCharacter::ElimTimerFinished()
+{
+	// 게임모드에서 캐릭터 부활 요청. 게임모드는 서버에만 존재해서 서버에서만 처리될 것
+	PollInit();
+	if (BlasterGameMode)
+	{
+		// 게임을 나가지 않은 경우에만 리스폰
+		if (!bLeftGame)
+		{
+			BlasterGameMode->RequestRespawn(this, Controller);
+		}
+	}
+
+	// 머리 위에 로봇 효과 제거
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
+	}
+
+	// 게임을 나갔다면 나갔다고 브로드캐스트
+	if (bLeftGame && IsLocallyControlled())
+	{
+		OnLeftGame.Broadcast();
 	}
 }
 
@@ -990,6 +1101,75 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 
 	// 위아래 계산
 	CalculateAO_Pitch();
+}
+
+double ABlasterCharacter::CaculateSpeed() const
+{
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.0;
+	return Velocity.Size();
+}
+
+void ABlasterCharacter::CalculateAO_Pitch()
+{
+	AO_Pitch = GetBaseAimRotation().Pitch;
+
+	// 피치값의 경우 -90 ~ 0도는 서버 패킷으로 전송되는 과정에서 270 ~ 360도로 변경된다.
+	// 그래서 자신이 컨트롤하는 캐릭터 외의 캐릭터의 피치값은 보정을 해준다.
+	if (AO_Pitch > 90.f && !IsLocallyControlled())
+	{
+		const FVector2D InRange(270.f, 360.f);
+		const FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+
+void ABlasterCharacter::RotateInPlace(float DeltaTime)
+{
+	// 깃발을 들었을 때는 에임 필요없음
+	if (Combat && Combat->bHoldingTheFlag)
+	{
+		bUseControllerRotationYaw = false;
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		if (GetCharacterMovement())
+		{
+			GetCharacterMovement()->bOrientRotationToMovement = true;
+		}
+		return;
+	}
+
+	// 깃발을 안들었을 떄
+	if (Combat && Combat->EquippedWeapon)
+	{
+		bUseControllerRotationYaw = true;
+		if (GetCharacterMovement())
+		{
+			GetCharacterMovement()->bOrientRotationToMovement = false;
+		}
+	}
+
+	if (bDisableGameplay)
+	{
+		bUseControllerRotationYaw = false;
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		return;
+	}
+
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
+	{
+		// 실시간으로 에임오프셋을 계산
+		AimOffset(DeltaTime);
+	}
+	else
+	{
+		// 움직임이 너무 오래 갱신이 안되면 직접 갱신함
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedMovement();
+		}
+		CalculateAO_Pitch();
+	}
 }
 
 void ABlasterCharacter::SimProxiesTurn()
@@ -1098,151 +1278,6 @@ void ABlasterCharacter::HideCameraIfCharacterClose()
 	}
 }
 
-void ABlasterCharacter::CalculateAO_Pitch()
-{
-	AO_Pitch = GetBaseAimRotation().Pitch;
-
-	// 피치값의 경우 -90 ~ 0도는 서버 패킷으로 전송되는 과정에서 270 ~ 360도로 변경된다.
-	// 그래서 자신이 컨트롤하는 캐릭터 외의 캐릭터의 피치값은 보정을 해준다.
-	if (AO_Pitch > 90.f && !IsLocallyControlled())
-	{
-		const FVector2D InRange(270.f, 360.f);
-		const FVector2D OutRange(-90.f, 0.f);
-		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
-	}
-}
-
-double ABlasterCharacter::CaculateSpeed() const
-{
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.0;
-	return Velocity.Size();
-}
-
-void ABlasterCharacter::ElimTimerFinished()
-{
-	// 게임모드에서 캐릭터 부활 요청. 게임모드는 서버에만 존재해서 서버에서만 처리될 것
-	PollInit();
-	if (BlasterGameMode)
-	{
-		// 게임을 나가지 않은 경우에만 리스폰
-		if (!bLeftGame)
-		{
-			BlasterGameMode->RequestRespawn(this, Controller);
-		}
-	}
-
-	// 머리 위에 로봇 효과 제거
-	if (ElimBotComponent)
-	{
-		ElimBotComponent->DestroyComponent();
-	}
-
-	// 게임을 나갔다면 나갔다고 브로드캐스트
-	if (bLeftGame && IsLocallyControlled())
-	{
-		OnLeftGame.Broadcast();
-	}
-}
-
-void ABlasterCharacter::StartDissolve()
-{
-	// 캐릭터가 죽고 사라지는 이펙트(머티리얼에 커브값을 줌)
-	DissolveTrack.BindDynamic(this, &ThisClass::UpdateDissolveMaterial);
-	
-	if (DissolveTimeline && DissolveCurve)
-	{
-		DissolveTimeline->AddInterpFloat(DissolveCurve, DissolveTrack);
-		DissolveTimeline->Play();
-	}
-}
-
-void ABlasterCharacter::PollInit()
-{
-	// BlasterPlayerState를 초기화하면서 최초로 한번만 실행
-	if (!BlasterPlayerState)
-	{
-		if (BlasterPlayerState = GetPlayerState<ABlasterPlayerState>())
-		{
-			OnPlayerStateInitialized();
-		}
-
-		// 리스폰했을 때 점수가 리드상태였다면 왕관을 준다.
-		if (ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)))
-		{
-			if (BlasterGameState->GetTopScoringPlayers().Contains(BlasterPlayerState))
-			{
-				MulticastGainedTheLead();
-			}
-		}
-	}
-
-	if (!BlasterGameMode && GetWorld())
-	{
-		BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
-	}
-
-	InitPlayerController();
-}
-
-void ABlasterCharacter::RotateInPlace(float DeltaTime)
-{
-	// 깃발을 들었을 때는 에임 필요없음
-	if (Combat && Combat->bHoldingTheFlag)
-	{
-		bUseControllerRotationYaw = false;
-		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
-		if (GetCharacterMovement())
-		{
-			GetCharacterMovement()->bOrientRotationToMovement = true;
-		}
-		return;
-	}
-
-	// 깃발을 안들었을 떄
-	if (Combat && Combat->EquippedWeapon)
-	{
-		bUseControllerRotationYaw = true;
-		if (GetCharacterMovement())
-		{
-			GetCharacterMovement()->bOrientRotationToMovement = false;
-		}
-	}
-
-	if (bDisableGameplay)
-	{
-		bUseControllerRotationYaw = false;
-		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
-		return;
-	}
-
-	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
-	{
-		// 실시간으로 에임오프셋을 계산
-		AimOffset(DeltaTime);
-	}
-	else
-	{
-		// 움직임이 너무 오래 갱신이 안되면 직접 갱신함
-		TimeSinceLastMovementReplication += DeltaTime;
-		if (TimeSinceLastMovementReplication > 0.25f)
-		{
-			OnRep_ReplicatedMovement();
-		}
-		CalculateAO_Pitch();
-	}
-}
-
-void ABlasterCharacter::UpdateHUDAmmo()
-{
-	InitPlayerController();
-	if (BlasterPlayerController && Combat && Combat->EquippedWeapon)
-	{
-		BlasterPlayerController->SetHUDWeaponAmmo(Combat->EquippedWeapon->GetAmmo());
-		BlasterPlayerController->SetHUDCarriedAmmo(Combat->CarriedAmmo);
-	}
-}
-
 void ABlasterCharacter::DropOrDestroyWeapon(AWeapon* Weapon)
 {
 	if (!Weapon) return;
@@ -1265,50 +1300,6 @@ void ABlasterCharacter::DropOrDestroyWeapons()
 		DropOrDestroyWeapon(Combat->SecondaryWeapon);
 		DropOrDestroyWeapon(Combat->TheFlag);
 	}
-}
-
-void ABlasterCharacter::SetSpawnPoint()
-{
-	// 생성은 서버에서만 하니까 스폰포인트는 서버에서만 정하면 됨
-	if (HasAuthority() && BlasterPlayerState && BlasterPlayerState->GetTeam() != ETeam::ET_NoTeam)
-	{
-		TArray<AActor*> PlayerStarts;
-		UGameplayStatics::GetAllActorsOfClass(this, ATeamPlayerStart::StaticClass(), PlayerStarts);
-
-		// 팀 플레이어 스타트 포지션들을 확인
-		TArray<ATeamPlayerStart*> TeamPlayerStarts;
-		for (AActor* Start : PlayerStarts)
-		{
-			if (ATeamPlayerStart* TeamStart = Cast<ATeamPlayerStart>(Start))
-			{
-				if (TeamStart->GetTeam() == BlasterPlayerState->GetTeam())
-				{
-					TeamPlayerStarts.Add(TeamStart);
-				}
-			}
-		}
-
-		// 해당 위치로 플레이어의 위치를 옮긴다.
-		if (TeamPlayerStarts.Num() > 0)
-		{
-			if (ATeamPlayerStart* ChosenPlayerStart = TeamPlayerStarts[FMath::RandRange(0, TeamPlayerStarts.Num() - 1)])
-			{
-				SetActorLocationAndRotation(ChosenPlayerStart->GetActorLocation(), ChosenPlayerStart->GetActorRotation());
-			}
-		}
-	}
-}
-
-void ABlasterCharacter::OnPlayerStateInitialized()
-{
-	if (!BlasterPlayerState) return;
-
-	BlasterPlayerState->AddToScore(0.f);
-	BlasterPlayerState->AddToDefeats(0);
-	// 팀 색깔을 입히고
-	SetTeamColor(BlasterPlayerState->GetTeam());
-	// 스폰지점도 팀 스폰포인트로 지정
-	SetSpawnPoint();
 }
 
 void ABlasterCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)

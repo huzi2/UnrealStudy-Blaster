@@ -14,18 +14,13 @@ namespace MatchState
 }
 
 ABlasterGameMode::ABlasterGameMode()
-	: WarmupTime(10.f)
-	, MatchTime(120.f)
-	, CooldownTime(10.f)
-	, bTeamsMatch(false)
-	, CountdownTime(0.f)
-	, LevelStartingTime(0.f)
 {
 	bDelayedStart = true;
 }
 
 float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage) const
 {
+	// 팀 게임모드에서는 아군을 떄리지 않도록 수정. 기본 게임모드에서는 모두에게 같은 데미지 계산
 	return BaseDamage;
 }
 
