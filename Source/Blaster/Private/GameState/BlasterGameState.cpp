@@ -5,13 +5,6 @@
 #include "PlayerState/BlasterPlayerState.h"
 #include "PlayerController/BlasterPlayerController.h"
 
-ABlasterGameState::ABlasterGameState()
-	: BlueTeamScore(0.f)
-	, RedTeamScore(0.f)
-	, TopScore(0.f)
-{
-}
-
 void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

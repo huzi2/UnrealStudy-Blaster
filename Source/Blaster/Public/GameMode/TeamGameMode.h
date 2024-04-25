@@ -7,7 +7,7 @@
 #include "TeamGameMode.generated.h"
 
 /**
- * 
+ * 팀 상태에서 데미지와 점수 처리를 하는 게임모드 클래스
  */
 UCLASS()
 class BLASTER_API ATeamGameMode : public ABlasterGameMode

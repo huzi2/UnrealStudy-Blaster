@@ -9,13 +9,6 @@
 #include "Components/HorizontalBox.h"
 #include "Components/CanvasPanelSlot.h"
 
-ABlasterHUD::ABlasterHUD()
-	: CrosshairSpreadMax(16.0)
-	//, ElimAnnouncementTime(2.5f)
-	, ElimAnnouncementTime(50.f)
-{
-}
-
 void ABlasterHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -34,13 +27,6 @@ void ABlasterHUD::DrawHUD()
 		DrawCrosshair(HUDPackage.CrosshairsTop, ViewportCenter, { 0.f, -SpreadScaled }, HUDPackage.CrosshairsColor);
 		DrawCrosshair(HUDPackage.CrosshairsBottom, ViewportCenter, { 0.f, SpreadScaled }, HUDPackage.CrosshairsColor);
 	}
-}
-
-void ABlasterHUD::ElimAnnouncementTimerFinished(UElimAnnouncement* MsgToRemove)
-{
-	if (!MsgToRemove) return;
-
-	MsgToRemove->RemoveFromParent();
 }
 
 void ABlasterHUD::AddCharacterOverlay()
@@ -123,4 +109,11 @@ void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, const FVector2D& ViewportCe
 	const FVector2D TextureDrawPoint(ViewportCenter.X - (TextureWidth / 2.0) + Spread.X, ViewportCenter.Y - (TextrueHeight / 2.0) + Spread.Y);
 
 	DrawTexture(Texture, TextureDrawPoint.X, TextureDrawPoint.Y, TextureWidth, TextrueHeight, 0.f, 0.f, 1.f, 1.f, CrosshairColor);
+}
+
+void ABlasterHUD::ElimAnnouncementTimerFinished(UElimAnnouncement* MsgToRemove)
+{
+	if (!MsgToRemove) return;
+
+	MsgToRemove->RemoveFromParent();
 }

@@ -7,7 +7,7 @@
 #include "LobbyGameMode.generated.h"
 
 /**
- * 
+ * 게임 모드에 따라 맵을 연결하는 로비 게임 모드 클래스
  */
 UCLASS()
 class BLASTER_API ALobbyGameMode : public AGameMode
