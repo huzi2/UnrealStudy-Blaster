@@ -9,8 +9,9 @@
 class UProgressBar;
 class UTextBlock;
 class UImage;
+
 /**
- * 
+ * 게임 화면에 보여지는 기본 UI 클래스
  */
 UCLASS()
 class BLASTER_API UCharacterOverlay : public UUserWidget
@@ -37,46 +38,32 @@ public:
 private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UProgressBar> HealthBar;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> HealthText;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UProgressBar> ShieldBar;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ShieldText;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ScoreAmount;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> DefeatsAmount;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> WeaponAmmoAmount;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> CarriedAmmoAmount;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MatchCountdownText;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> GrenadeText;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> HighPingImage;
-
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	TObjectPtr<UWidgetAnimation> HighPingAnimation;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> BlueTeamScore;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> RedTeamScore;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ScoreSpacerText;
 };

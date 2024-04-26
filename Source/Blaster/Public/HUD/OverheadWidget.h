@@ -7,8 +7,9 @@
 #include "OverheadWidget.generated.h"
 
 class UTextBlock;
+
 /**
- * 
+ * 플레이어의 NetRole을 표시해주는 UI 클래스
  */
 UCLASS()
 class BLASTER_API UOverheadWidget : public UUserWidget
@@ -22,7 +23,6 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void ShowPlayerNetRole(APawn* InPawn);
 
-private:
 	void SetDisplayText(const FString& TextToDisplay);
 
 private:
