@@ -8,6 +8,9 @@
 
 class APickup;
 
+/**
+ * 아이템 생성 지점 클래스
+ */
 UCLASS()
 class BLASTER_API APickupSpawnPoint : public AActor
 {
@@ -20,26 +23,30 @@ private:
 	virtual void BeginPlay() final;
 
 private:
+	// 생성 타이머 시작
 	UFUNCTION()
 	void StartSpawnPickupTimer(AActor* DestroyedActor);
-
-private:
+	// 생성 타이머가 끝나면 아이템 생성
 	void SpawnPickupTimerFinished();
+	// 아이템을 랜덤하게 생성
 	void SpawnPickup();
 
 private:
+	// 생성할 아이템 클래스들
 	UPROPERTY(EditAnywhere)
 	TArray<TSubclassOf<APickup>> PickupClasses;
 
+	// 생성 시간
 	UPROPERTY(EditAnywhere)
 	float SpawnPickupTimeMin;
-
 	UPROPERTY(EditAnywhere)
 	float SpawnPickupTimeMax;
 
+	// 생성된 아이템 클래스
 	UPROPERTY()
 	TObjectPtr<APickup> SpawnedPickup;
 
 private:
+	// 아이템 재생성되는 시간 타이머
 	FTimerHandle SpawnPickupTimer;
 };

@@ -7,7 +7,7 @@ APickupSpawnPoint::APickupSpawnPoint()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	// 픽업 생성을 서버에서만 하므로 레플리케이션 필요
+	// 아이템 생성을 서버에서만 하므로 레플리케이션 필요
 	bReplicates = true;
 }
 
@@ -26,7 +26,7 @@ void APickupSpawnPoint::StartSpawnPickupTimer(AActor* DestroyedActor)
 
 void APickupSpawnPoint::SpawnPickupTimerFinished()
 {
-	// 픽업 생성은 서버에서만
+	// 아이템 생성은 서버에서만
 	if (HasAuthority())
 	{
 		SpawnPickup();

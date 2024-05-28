@@ -4,12 +4,6 @@
 #include "Character/BlasterCharacter.h"
 #include "BlasterComponents/BuffComponent.h"
 
-AShieldPickup::AShieldPickup()
-	: ShieldReplenishAmount(100.f)
-	, ShieldReplenishTime(5.f)
-{
-}
-
 void AShieldPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	Super::OnSphereOverlap(OverlappedComponent, OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);

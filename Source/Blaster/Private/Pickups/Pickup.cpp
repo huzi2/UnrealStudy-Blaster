@@ -9,8 +9,6 @@
 #include "NiagaraFunctionLibrary.h"
 
 APickup::APickup()
-	: BaseTurnRate(45.f)
-	, BindOverlapTime(0.25f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -53,6 +51,7 @@ void APickup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// 아이템 계속 회전
 	if (PickupMesh)
 	{
 		PickupMesh->AddWorldRotation(FRotator(0.f, BaseTurnRate * DeltaTime, 0.f));
@@ -80,6 +79,7 @@ void APickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 
 void APickup::BindOverlapTimerFinished()
 {
+	// 아이템 충돌 함수 바인드
 	if (OverlapShpere)
 	{
 		OverlapShpere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereOverlap);
