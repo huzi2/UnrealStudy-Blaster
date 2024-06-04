@@ -21,23 +21,6 @@
 #include "HUD/ReturnToMainMenu.h"
 #include "BlasterTypes/Announcement.h"
 
-ABlasterPlayerController::ABlasterPlayerController()
-	: TimeSyncFrequency(5.f)
-	, HighPingDuration(5.f)
-	, CheckPingFrequency(20.f)
-	, HighPingThreshold(50.f)
-	, bShowTeamScores(false)
-	, CounddownInt(0)
-	, ClientServerDelta(0.f)
-	, SingleTripTime(0.f)
-	, TimeSyncRunningTime(0.f)
-	, bInitializeCharacterOverlay(false)
-	, HighPingRunningTime(0.f)
-	, PingAnimationRunningTime(0.f)
-	, bReturnToMainMenuOpen(false)
-{
-}
-
 void ABlasterPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -65,8 +48,7 @@ void ABlasterPlayerController::OnPossess(APawn* InPawn)
 	// 플레이어가 제거될 때 컨트롤러가 연결되지 않은 상태에서 BeginPlay()에 들어가면 체력이 갱신되지 않는다.
 	// 그래서 OnPossess()에서 갱신
 	// 다만 최초 게임 실행에서는 UI보다 컨트롤러가 먼저 생성되서 작동안할 수 있기에 캐릭터에서도 호출한다.
-	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(InPawn);
-	if (BlasterCharacter)
+	if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(InPawn))
 	{
 		SetHUDHealth(BlasterCharacter->GetHealth(), BlasterCharacter->GetMaxHealth());
 		SetHUDShield(BlasterCharacter->GetShield(), BlasterCharacter->GetMaxShield());
@@ -118,107 +100,37 @@ void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(ABlasterPlayerController, bShowTeamScores);
 }
 
-void ABlasterPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
+float ABlasterPlayerController::GetServerTime() const
 {
-	if (!GetWorld()) return;
-	// 해당 함수는 Server RPC이므로 클라에서 호출해도 서버에서 사용됨
+	if (!GetWorld()) return 0.f;
 
-	// 현재 서버 시간을 알아내서 클라이언트에게 보낸다.
-	const float ServerTimeOfReceipt = GetWorld()->GetTimeSeconds();
-	ClientReportServerTime(TimeOfClientRequest, ServerTimeOfReceipt);
+	if (HasAuthority()) return GetWorld()->GetTimeSeconds(); // 서버는 그대로 리턴
+	// 현재 서버 시간과 클라시간의 차이를 합쳐서 올바른 서버 시간을 알려줌
+	else return GetWorld()->GetTimeSeconds() + ClientServerDelta;
 }
 
-void ABlasterPlayerController::ClientReportServerTime_Implementation(float TimeOfClientRequest, float TimeServerReceivedClientRequest)
+void ABlasterPlayerController::OnMatchStateSet(const FName& State, bool bTeamsMatch)
 {
-	if (!GetWorld()) return;
-	// 해당 함수는 Client RPC이므로 서버에서 호출해도 해당 클라에서 사용됨
+	// 이 함수는 게임모드에서 호출되므로 서버만 세팅이된다. 클라는 레플리케이션으로 알려줌
+	MatchState = State;
 
-	// 현재 클라시간에서 클라가 요청한 시간을 빼서 지연 시간을 확인
-	const float RoundTripTime = GetWorld()->GetTimeSeconds() - TimeOfClientRequest;
-
-	// 서버가 보내준 시간에 지연 시간을 합쳐서 현재 올바른 서버 시간을 확인
-	// 0.5f는 지연시간이 왕복 기준이라 반으로 나눈것
-	SingleTripTime = RoundTripTime * 0.5f;
-	const float CurrentServerTime = TimeServerReceivedClientRequest + SingleTripTime;
-
-	// 서버와 클라이언트의 시간 차이 확인
-	ClientServerDelta = CurrentServerTime - GetWorld()->GetTimeSeconds();
-}
-
-void ABlasterPlayerController::ServerCheckMatchState_Implementation()
-{
-	// 서버의 게임 모드에서 매치 시작 전 대기시간과 매치 지속시간을 확인
-	if (BlasterGameMode)
+	// 매치가 시작되면
+	if (MatchState == MatchState::InProgress)
 	{
-		MatchState = BlasterGameMode->GetMatchState();
-		WarmupTime = BlasterGameMode->GetWarmupTime();
-		MatchTime = BlasterGameMode->GetMatchTime();
-		CooldownTime = BlasterGameMode->GetCooldownTime();
-		LevelStartingTime = BlasterGameMode->GetLevelStartingTime();
-
-		// 서버에서 알아낸 매치 관련 정보를 클라이언트들에게도 알려줌
-		ClientJoinMidGame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime);
+		HandleMatchHasStarted(bTeamsMatch);
+	}
+	// 커스텀 매치 상태. 매치 사이의 시간
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
 	}
 }
 
-void ABlasterPlayerController::ClientJoinMidGame_Implementation(const FName& StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime)
+void ABlasterPlayerController::BroadcastElim(APlayerState* Attacker, APlayerState* Victim)
 {
-	// 서버에서 알아낸 매치 관련 정보를 중간에 들어온 클라이언트들에게도 알려줌
-	WarmupTime = Warmup;
-	MatchTime = Match;
-	CooldownTime = Cooldown;
-	LevelStartingTime = StartingTime;
-	MatchState = StateOfMatch;
-
-	// 중간에 들어왔으면 새 매치상태로 바로 변경
-	OnMatchStateSet(MatchState);
-
-	if (BlasterHUD && MatchState == MatchState::WaitingToStart)
-	{
-		BlasterHUD->AddAnnouncement();
-	}
-}
-
-void ABlasterPlayerController::ServerReportPingStatus_Implementation(bool bHighPing)
-{
-	HighPingDelegate.Broadcast(bHighPing);
-}
-
-void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerState* Attacker, APlayerState* Victim)
-{
-	APlayerState* Self = GetPlayerState<APlayerState>();
-	if (Attacker && Victim && Self)
-	{
-		HUDInit();
-
-		if (BlasterHUD)
-		{
-			// 자신이 누군가를 제거
-			if (Attacker == Self && Victim != Self)
-			{
-				BlasterHUD->AddElimAnnouncement(TEXT("You"), Victim->GetPlayerName());
-			}
-			// 누군가가 자신을 제거
-			else if (Victim == Self && Attacker != Self)
-			{
-				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), TEXT("you"));
-			}
-			// 본인이 자살
-			else if(Attacker == Self && Victim == Self)
-			{
-				BlasterHUD->AddElimAnnouncement(TEXT("You"), TEXT("yourself"));
-			}
-			// 누군가가 자살
-			else if(Attacker == Victim && Attacker != Self)
-			{
-				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), TEXT("themselves"));
-			}
-			else
-			{
-				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), Victim->GetPlayerName());
-			}
-		}
-	}
+	// 이 함수는 게임모드를 통해 서버에 호출되었음
+	// 클라이언트에게도 알려주기 위해 클라이언트 RPC 함수를 호출
+	ClientElimAnnouncement(Attacker, Victim);
 }
 
 void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
@@ -409,89 +321,31 @@ void ABlasterPlayerController::SetHUDRedTeamScore(int32 RedScore)
 	BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()->SetText(FText::FromString(RedScoreText));
 }
 
-float ABlasterPlayerController::GetServerTime() const
-{
-	if (!GetWorld()) return 0.f;
-
-	if (HasAuthority()) return GetWorld()->GetTimeSeconds(); // 서버는 그대로 리턴
-	// 현재 서버 시간과 클라시간의 차이를 합쳐서 올바른 서버 시간을 알려줌
-	else return GetWorld()->GetTimeSeconds() + ClientServerDelta;
-}
-
-void ABlasterPlayerController::OnMatchStateSet(const FName& State, bool bTeamsMatch)
-{
-	// 이 함수는 게임모드에서 호출되므로 서버만 세팅이된다. 클라는 레플리케이션으로 알려줌
-	MatchState = State;
-
-	// 매치가 시작되면
-	if (MatchState == MatchState::InProgress)
-	{
-		HandleMatchHasStarted(bTeamsMatch);
-	}
-	// 커스텀 매치 상태. 매치 사이의 시간
-	else if (MatchState == MatchState::Cooldown)
-	{
-		HandleCooldown();
-	}
-}
-
-void ABlasterPlayerController::BroadcastElim(APlayerState* Attacker, APlayerState* Victim)
-{
-	// 이 함수는 게임모드를 통해 서버에 호출되었음
-	// 클라이언트에게도 알려주기 위해 클라이언트 RPC 함수를 호출
-	ClientElimAnnouncement(Attacker, Victim);
-}
-
-void ABlasterPlayerController::HUDInit()
-{
-	if (!BlasterHUD)
-	{
-		BlasterHUD = Cast<ABlasterHUD>(GetHUD());
-	}
-}
-
-void ABlasterPlayerController::SetHUDTime()
+void ABlasterPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
 {
 	if (!GetWorld()) return;
+	// 해당 함수는 Server RPC이므로 클라에서 호출해도 서버에서 사용됨
 
-	float TimeLeft = 0.f;
-	if (MatchState == MatchState::WaitingToStart)
-	{
-		TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
-	}
-	else if (MatchState == MatchState::InProgress)
-	{
-		TimeLeft = WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
-	}
-	else if (MatchState == MatchState::Cooldown)
-	{
-		TimeLeft = WarmupTime + MatchTime + CooldownTime - GetServerTime() + LevelStartingTime;
-	}
+	// 현재 서버 시간을 알아내서 클라이언트에게 보낸다.
+	const float ServerTimeOfReceipt = GetWorld()->GetTimeSeconds();
+	ClientReportServerTime(TimeOfClientRequest, ServerTimeOfReceipt);
+}
 
-	uint32 SecondsLeft = 0;
-	if (BlasterGameMode)
-	{
-		SecondsLeft = BlasterGameMode->GetCountdownTime() + LevelStartingTime;
-	}
-	else
-	{
-		SecondsLeft = FMath::CeilToInt(TimeLeft);
-	}
+void ABlasterPlayerController::ClientReportServerTime_Implementation(float TimeOfClientRequest, float TimeServerReceivedClientRequest)
+{
+	if (!GetWorld()) return;
+	// 해당 함수는 Client RPC이므로 서버에서 호출해도 해당 클라에서 사용됨
 
-	// 남은 시간이 실제로 1초라도 수정되었을 때 UI 업데이트(틱마다 업데이트 방지)
-	if (CounddownInt != SecondsLeft)
-	{
-		if (MatchState == MatchState::WaitingToStart || MatchState == MatchState::Cooldown)
-		{
-			SetHUDAnnouncementCountdown(TimeLeft);
-		}
-		else if (MatchState == MatchState::InProgress)
-		{
-			SetHUDMatchCountdown(TimeLeft);
-		}
-	}
+	// 현재 클라시간에서 클라가 요청한 시간을 빼서 지연 시간을 확인
+	const float RoundTripTime = GetWorld()->GetTimeSeconds() - TimeOfClientRequest;
 
-	CounddownInt = SecondsLeft;
+	// 서버가 보내준 시간에 지연 시간을 합쳐서 현재 올바른 서버 시간을 확인
+	// 0.5f는 지연시간이 왕복 기준이라 반으로 나눈것
+	SingleTripTime = RoundTripTime * 0.5f;
+	const float CurrentServerTime = TimeServerReceivedClientRequest + SingleTripTime;
+
+	// 서버와 클라이언트의 시간 차이 확인
+	ClientServerDelta = CurrentServerTime - GetWorld()->GetTimeSeconds();
 }
 
 void ABlasterPlayerController::CheckTimeSync(float DeltaTime)
@@ -504,30 +358,37 @@ void ABlasterPlayerController::CheckTimeSync(float DeltaTime)
 	}
 }
 
-void ABlasterPlayerController::PollInit()
+void ABlasterPlayerController::ServerCheckMatchState_Implementation()
 {
-	// 컨트롤러가 오버레이보다 먼저 생성됬을 때 나중에 초기화하기위함
-	if (BlasterHUD)
+	// 서버의 게임 모드에서 매치 시작 전 대기시간과 매치 지속시간을 확인
+	if (BlasterGameMode)
 	{
-		if (bInitializeCharacterOverlay)
-		{
-			SetHUDHealth(HUDHealth, HUDMaxHealth);
-			SetHUDShield(HUDShield, HUDMaxShield);
-			SetHUDScore(HUDScore);
-			SetHUDDefeats(HUDDefeats);
-			SetHUDWeaponAmmo(HUDWeaponAmmo);
-			SetHUDCarriedAmmo(HUDCarriedAmmo);
+		MatchState = BlasterGameMode->GetMatchState();
+		WarmupTime = BlasterGameMode->GetWarmupTime();
+		MatchTime = BlasterGameMode->GetMatchTime();
+		CooldownTime = BlasterGameMode->GetCooldownTime();
+		LevelStartingTime = BlasterGameMode->GetLevelStartingTime();
 
-			if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn()))
-			{
-				if (BlasterCharacter->GetCombat())
-				{
-					SetHUDGrenades(BlasterCharacter->GetCombat()->GetGrenades());
-				}
-			}
-			
-			bInitializeCharacterOverlay = false;
-		}
+		// 서버에서 알아낸 매치 관련 정보를 클라이언트들에게도 알려줌
+		ClientJoinMidGame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime);
+	}
+}
+
+void ABlasterPlayerController::ClientJoinMidGame_Implementation(const FName& StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime)
+{
+	// 서버에서 알아낸 매치 관련 정보를 중간에 들어온 클라이언트들에게도 알려줌
+	WarmupTime = Warmup;
+	MatchTime = Match;
+	CooldownTime = Cooldown;
+	LevelStartingTime = StartingTime;
+	MatchState = StateOfMatch;
+
+	// 중간에 들어왔으면 새 매치상태로 바로 변경
+	OnMatchStateSet(MatchState);
+
+	if (BlasterHUD && MatchState == MatchState::WaitingToStart)
+	{
+		BlasterHUD->AddAnnouncement();
 	}
 }
 
@@ -582,7 +443,7 @@ void ABlasterPlayerController::HandleCooldown()
 		if (BlasterHUD->GetAnnouncement())
 		{
 			BlasterHUD->GetAnnouncement()->SetVisibility(ESlateVisibility::Visible);
-			
+
 			if (BlasterHUD->GetAnnouncement()->GetAnnouncementText())
 			{
 				const FString AnnouncementText = Announcement::NewMatchStartsIn;
@@ -591,10 +452,7 @@ void ABlasterPlayerController::HandleCooldown()
 			if (BlasterHUD->GetAnnouncement()->GetInfoText())
 			{
 				// 최고점 플레이어들을 표시
-				ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
-				ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
-
-				if (BlasterGameState)
+				if (ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)))
 				{
 					const TArray<ABlasterPlayerState*>& TopPlayers = BlasterGameState->GetTopScoringPlayers();
 					const FString InfoTextString = bShowTeamScores ? GetTeamsInfoText(BlasterGameState) : GetInfoText(TopPlayers);
@@ -620,115 +478,6 @@ void ABlasterPlayerController::HandleCooldown()
 			BlasterCharacter->GetCombat()->FireButtonPressed(false);
 		}
 	}
-}
-
-void ABlasterPlayerController::HighPingWarning()
-{
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingImage()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()) return;
-
-	BlasterHUD->GetCharacterOverlay()->GetHighPingImage()->SetOpacity(1.f);
-	BlasterHUD->GetCharacterOverlay()->PlayAnimation(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation(), 0.f, 5);
-}
-
-void ABlasterPlayerController::StopHighPingWarning()
-{
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingImage()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()) return;
-
-	BlasterHUD->GetCharacterOverlay()->GetHighPingImage()->SetOpacity(0.f);
-	if (BlasterHUD->GetCharacterOverlay()->IsPlayingAnimation())
-	{
-		BlasterHUD->GetCharacterOverlay()->StopAnimation(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation());
-	}
-}
-
-void ABlasterPlayerController::CheckPing(float DeltaTime)
-{
-	// 일정 시간 주기로 핑이 높은지 체크
-	HighPingRunningTime += DeltaTime;
-	if (HighPingRunningTime > CheckPingFrequency)
-	{
-		if (!PlayerState) PlayerState = GetPlayerState<APlayerState>();
-		if (PlayerState)
-		{
-			// 핑이 높다면 UI 애니메이션을 통해 경고
-			if (PlayerState->GetPingInMilliseconds() > HighPingThreshold)
-			{
-				HighPingWarning();
-				PingAnimationRunningTime = 0.f;
-				// 클라의 핑이 높다고 서버에게 알려준다.
-				ServerReportPingStatus(true);
-			}
-			else
-			{
-				// 클라의 핑이 낮다고 서버에게 알려준다.
-				ServerReportPingStatus(false);
-			}
-		}
-		HighPingRunningTime = 0.f;
-	}
-
-	// 높은 핑 경고 애니메이션은 일정 시간만 수행
-	if (BlasterHUD && BlasterHUD->GetCharacterOverlay() && BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation() && BlasterHUD->GetCharacterOverlay()->IsAnimationPlaying(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()))
-	{
-		PingAnimationRunningTime += DeltaTime;
-		if (PingAnimationRunningTime > HighPingDuration)
-		{
-			StopHighPingWarning();
-		}
-	}
-}
-
-void ABlasterPlayerController::ShowReturnToMainMenu()
-{
-	if (!ReturnToMainMenuWidget) return;
-
-	if (!ReturnToMainMenu)
-	{
-		ReturnToMainMenu = CreateWidget<UReturnToMainMenu>(this, ReturnToMainMenuWidget);
-	}
-
-	if (ReturnToMainMenu)
-	{
-		bReturnToMainMenuOpen = !bReturnToMainMenuOpen;
-
-		bReturnToMainMenuOpen ? ReturnToMainMenu->MenuSetup() : ReturnToMainMenu->MenuTearDown();
-	}
-}
-
-void ABlasterPlayerController::HideTeamScore()
-{
-	HUDInit();
-
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()) return;
-
-	BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()->SetText(FText());
-	BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()->SetText(FText());
-	BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()->SetText(FText());
-}
-
-void ABlasterPlayerController::InitTeamScore()
-{
-	HUDInit();
-
-	if (!BlasterHUD) return;
-	if (!BlasterHUD->GetCharacterOverlay()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()) return;
-	if (!BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()) return;
-
-	BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()->SetText(FText::FromString(TEXT("0")));
-	BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()->SetText(FText::FromString(TEXT("0")));
-	BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()->SetText(FText::FromString(TEXT(":")));
 }
 
 FString ABlasterPlayerController::GetInfoText(const TArray<ABlasterPlayerState*>& Players) const
@@ -798,7 +547,7 @@ FString ABlasterPlayerController::GetTeamsInfoText(ABlasterGameState* BlasterGam
 		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::RedTeam, RedTeamScore));
 	}
 	// 레드팀 승리. 점수 표시
-	else if(RedTeamScore > BlueTeamScore)
+	else if (RedTeamScore > BlueTeamScore)
 	{
 		InfoTextString = Announcement::RedTeamWins;
 		InfoTextString.Append(FString("\n"));
@@ -806,6 +555,236 @@ FString ABlasterPlayerController::GetTeamsInfoText(ABlasterGameState* BlasterGam
 		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::BlueTeam, BlueTeamScore));
 	}
 	return InfoTextString;
+}
+
+void ABlasterPlayerController::ServerReportPingStatus_Implementation(bool bHighPing)
+{
+	HighPingDelegate.Broadcast(bHighPing);
+}
+
+void ABlasterPlayerController::CheckPing(float DeltaTime)
+{
+	// 일정 시간 주기로 핑이 높은지 체크
+	HighPingRunningTime += DeltaTime;
+	if (HighPingRunningTime > CheckPingFrequency)
+	{
+		if (!PlayerState) PlayerState = GetPlayerState<APlayerState>();
+		if (PlayerState)
+		{
+			// 핑이 높다면 UI 애니메이션을 통해 경고
+			if (PlayerState->GetPingInMilliseconds() > HighPingThreshold)
+			{
+				HighPingWarning();
+				PingAnimationRunningTime = 0.f;
+				// 클라의 핑이 높다고 서버에게 알려준다.
+				ServerReportPingStatus(true);
+			}
+			else
+			{
+				// 클라의 핑이 낮다고 서버에게 알려준다.
+				ServerReportPingStatus(false);
+			}
+		}
+		HighPingRunningTime = 0.f;
+	}
+
+	// 높은 핑 경고 애니메이션은 일정 시간만 수행
+	if (BlasterHUD && BlasterHUD->GetCharacterOverlay() && BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation() && BlasterHUD->GetCharacterOverlay()->IsAnimationPlaying(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()))
+	{
+		PingAnimationRunningTime += DeltaTime;
+		if (PingAnimationRunningTime > HighPingDuration)
+		{
+			StopHighPingWarning();
+		}
+	}
+}
+
+void ABlasterPlayerController::HighPingWarning()
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingImage()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()) return;
+
+	BlasterHUD->GetCharacterOverlay()->GetHighPingImage()->SetOpacity(1.f);
+	BlasterHUD->GetCharacterOverlay()->PlayAnimation(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation(), 0.f, 5);
+}
+
+void ABlasterPlayerController::StopHighPingWarning()
+{
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingImage()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation()) return;
+
+	BlasterHUD->GetCharacterOverlay()->GetHighPingImage()->SetOpacity(0.f);
+	if (BlasterHUD->GetCharacterOverlay()->IsPlayingAnimation())
+	{
+		BlasterHUD->GetCharacterOverlay()->StopAnimation(BlasterHUD->GetCharacterOverlay()->GetHighPingAnimation());
+	}
+}
+
+void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerState* Attacker, APlayerState* Victim)
+{
+	APlayerState* Self = GetPlayerState<APlayerState>();
+	if (Attacker && Victim && Self)
+	{
+		HUDInit();
+
+		if (BlasterHUD)
+		{
+			// 자신이 누군가를 제거
+			if (Attacker == Self && Victim != Self)
+			{
+				BlasterHUD->AddElimAnnouncement(TEXT("You"), Victim->GetPlayerName());
+			}
+			// 누군가가 자신을 제거
+			else if (Victim == Self && Attacker != Self)
+			{
+				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), TEXT("you"));
+			}
+			// 본인이 자살
+			else if(Attacker == Self && Victim == Self)
+			{
+				BlasterHUD->AddElimAnnouncement(TEXT("You"), TEXT("yourself"));
+			}
+			// 누군가가 자살
+			else if(Attacker == Victim && Attacker != Self)
+			{
+				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), TEXT("themselves"));
+			}
+			else
+			{
+				BlasterHUD->AddElimAnnouncement(Attacker->GetPlayerName(), Victim->GetPlayerName());
+			}
+		}
+	}
+}
+
+void ABlasterPlayerController::PollInit()
+{
+	// 컨트롤러가 오버레이보다 먼저 생성됬을 때 나중에 초기화하기위함
+	if (BlasterHUD)
+	{
+		if (bInitializeCharacterOverlay)
+		{
+			SetHUDHealth(HUDHealth, HUDMaxHealth);
+			SetHUDShield(HUDShield, HUDMaxShield);
+			SetHUDScore(HUDScore);
+			SetHUDDefeats(HUDDefeats);
+			SetHUDWeaponAmmo(HUDWeaponAmmo);
+			SetHUDCarriedAmmo(HUDCarriedAmmo);
+
+			if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn()))
+			{
+				if (BlasterCharacter->GetCombat())
+				{
+					SetHUDGrenades(BlasterCharacter->GetCombat()->GetGrenades());
+				}
+			}
+
+			bInitializeCharacterOverlay = false;
+		}
+	}
+}
+
+void ABlasterPlayerController::HUDInit()
+{
+	if (!BlasterHUD)
+	{
+		BlasterHUD = Cast<ABlasterHUD>(GetHUD());
+	}
+}
+
+void ABlasterPlayerController::SetHUDTime()
+{
+	if (!GetWorld()) return;
+
+	float TimeLeft = 0.f;
+	if (MatchState == MatchState::WaitingToStart)
+	{
+		TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+	}
+	else if (MatchState == MatchState::InProgress)
+	{
+		TimeLeft = WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		TimeLeft = WarmupTime + MatchTime + CooldownTime - GetServerTime() + LevelStartingTime;
+	}
+
+	uint32 SecondsLeft = 0;
+	if (BlasterGameMode)
+	{
+		SecondsLeft = BlasterGameMode->GetCountdownTime() + LevelStartingTime;
+	}
+	else
+	{
+		SecondsLeft = FMath::CeilToInt(TimeLeft);
+	}
+
+	// 남은 시간이 실제로 1초라도 수정되었을 때 UI 업데이트(틱마다 업데이트 방지)
+	if (CounddownInt != SecondsLeft)
+	{
+		if (MatchState == MatchState::WaitingToStart || MatchState == MatchState::Cooldown)
+		{
+			SetHUDAnnouncementCountdown(TimeLeft);
+		}
+		else if (MatchState == MatchState::InProgress)
+		{
+			SetHUDMatchCountdown(TimeLeft);
+		}
+	}
+
+	CounddownInt = SecondsLeft;
+}
+
+void ABlasterPlayerController::InitTeamScore()
+{
+	HUDInit();
+
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()) return;
+
+	BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()->SetText(FText::FromString(TEXT("0")));
+	BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()->SetText(FText::FromString(TEXT("0")));
+	BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()->SetText(FText::FromString(TEXT(":")));
+}
+
+void ABlasterPlayerController::HideTeamScore()
+{
+	HUDInit();
+
+	if (!BlasterHUD) return;
+	if (!BlasterHUD->GetCharacterOverlay()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()) return;
+	if (!BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()) return;
+
+	BlasterHUD->GetCharacterOverlay()->GetBlueTeamScore()->SetText(FText());
+	BlasterHUD->GetCharacterOverlay()->GetRedTeamScore()->SetText(FText());
+	BlasterHUD->GetCharacterOverlay()->GetScoreSpacerText()->SetText(FText());
+}
+
+void ABlasterPlayerController::ShowReturnToMainMenu()
+{
+	if (!ReturnToMainMenuWidget) return;
+
+	if (!ReturnToMainMenu)
+	{
+		ReturnToMainMenu = CreateWidget<UReturnToMainMenu>(this, ReturnToMainMenuWidget);
+	}
+
+	if (ReturnToMainMenu)
+	{
+		bReturnToMainMenuOpen = !bReturnToMainMenuOpen;
+
+		bReturnToMainMenuOpen ? ReturnToMainMenu->MenuSetup() : ReturnToMainMenu->MenuTearDown();
+	}
 }
 
 void ABlasterPlayerController::OnRep_MatchState()
