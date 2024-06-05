@@ -8,11 +8,6 @@
 // 기본적으로 플레이어스테이트는 서버에서 캐릭터보다 느리게 복사된다.
 // 그래서 빨리 갱신되어야하는 체력이나 탄약수와 같은 변수는 캐릭터나 액터나 컴포넌트에서 관리하는 것이 좋다.
 
-ABlasterPlayerState::ABlasterPlayerState()
-	: Team(ETeam::ET_NoTeam)
-{
-}
-
 void ABlasterPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

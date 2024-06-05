@@ -5,7 +5,6 @@
 #include "Sound/SoundCue.h"
 
 ACasing::ACasing()
-	: ShellEjectionImpulse(10.f)
 {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -32,6 +31,7 @@ void ACasing::BeginPlay()
 
 void ACasing::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	// ¶¥°ú ºÎµúÈ÷¸é ¼Ò¸®³»°í ÅºÇÇ »èÁ¦
 	if (ShellSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, ShellSound, GetActorLocation());

@@ -8,6 +8,9 @@
 
 class USoundCue;
 
+/**
+ * ÅºÇÇ Å¬·¡½º
+ */
 UCLASS()
 class BLASTER_API ACasing : public AActor
 {
@@ -24,12 +27,15 @@ private:
 	void OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 private:
+	// ÅºÇÇ ¸Þ½¬
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UStaticMeshComponent> CasingMesh;
 
+	// ÅºÇÇ ¼Ò¸®
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<USoundCue> ShellSound;
 
+	// ÅºÇÇ¿¡ °¡ÇÒ Èû
 	UPROPERTY(EditAnywhere)
-	float ShellEjectionImpulse;
+	float ShellEjectionImpulse = 10.f;
 };

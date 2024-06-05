@@ -8,6 +8,9 @@ constexpr int32 CUSTOM_DEPTH_PURPLE = 250;
 constexpr int32 CUSTOM_DEPTH_BLUE = 251;
 constexpr int32 CUSTOM_DEPTH_TAN = 252;
 
+/**
+ * 무기 타입
+ */
 UENUM(BlueprintType)
 enum class EWeaponType : uint8
 {
