@@ -7,7 +7,7 @@
 #include "RocketMovementComponent.generated.h"
 
 /**
- * 
+ * 로켓이 사용할 이동 컴포넌트
  */
 UCLASS()
 class BLASTER_API URocketMovementComponent : public UProjectileMovementComponent

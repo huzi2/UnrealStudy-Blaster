@@ -7,7 +7,7 @@
 #include "ProjectileGrenade.generated.h"
 
 /**
- * 
+ * 바닥이나 벽에서 튕기는 유탄 발사체 클래스
  */
 UCLASS()
 class BLASTER_API AProjectileGrenade : public AProjectile
@@ -25,6 +25,7 @@ private:
 	void OnBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity);
 
 private:
+	// 바닥이나 벽에 튕길 때 사운드
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<USoundCue> BounceSound;
 };

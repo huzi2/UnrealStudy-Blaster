@@ -94,10 +94,12 @@ void AProjectileBullet::OnHit(UPrimitiveComponent* HItComp, AActor* OtherActor, 
 			// 클라면서 서버 되감기를 사용
 			if (bUseServerSideRewind)
 			{
-				ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(OtherActor);
-				if (OwnerCharacter->IsLocallyControlled() && OwnerCharacter->GetLagCompensation() && HitCharacter)
+				if (ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(OtherActor))
 				{
-					OwnerCharacter->GetLagCompensation()->ServerProjectileScoreRequest(HitCharacter, TraceStart, InitialVelocity, static_cast<double>(OwnerController->GetServerTime() - OwnerController->GetSingleTripTime()), this);
+					if (OwnerCharacter->IsLocallyControlled() && OwnerCharacter->GetLagCompensation())
+					{
+						OwnerCharacter->GetLagCompensation()->ServerProjectileScoreRequest(HitCharacter, TraceStart, InitialVelocity, static_cast<double>(OwnerController->GetServerTime() - OwnerController->GetSingleTripTime()), this);
+					}
 				}
 			}
 		}

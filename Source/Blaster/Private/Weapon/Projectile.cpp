@@ -9,13 +9,6 @@
 #include "NiagaraFunctionLibrary.h"
 
 AProjectile::AProjectile()
-	: bUseServerSideRewind(false)
-	, InitialSpeed(15000.f)
-	, DestroyTime(3.f)
-	, DamageInnerRadius(200.f)
-	, DamageOuterRadius(500.f)
-	, Damage(20.f)
-	, HeadShotDamage(40.f)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	// 생성은 서버에서만 진행하고 클라들은 복사본만 얻어옴
@@ -81,11 +74,6 @@ void AProjectile::SpawnTrailSystem()
 	}
 }
 
-void AProjectile::StartDestroyTimer()
-{
-	GetWorldTimerManager().SetTimer(DestroyTimer, this, &ThisClass::DestroyTimerFinished, DestroyTime);
-}
-
 void AProjectile::ExplodeDamage()
 {
 	// 데미지는 서버에서만 처리
@@ -100,6 +88,11 @@ void AProjectile::ExplodeDamage()
 			}
 		}
 	}
+}
+
+void AProjectile::StartDestroyTimer()
+{
+	GetWorldTimerManager().SetTimer(DestroyTimer, this, &ThisClass::DestroyTimerFinished, DestroyTime);
 }
 
 void AProjectile::DestroyTimerFinished()

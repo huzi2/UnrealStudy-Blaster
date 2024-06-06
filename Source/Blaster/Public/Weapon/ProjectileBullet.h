@@ -6,9 +6,8 @@
 #include "Weapon/Projectile.h"
 #include "ProjectileBullet.generated.h"
 
-// 데미지 기능이 추가된 발사체
 /**
- * 
+ * 가장 기본적인 총알 발사체 클래스
  */
 UCLASS()
 class BLASTER_API AProjectileBullet : public AProjectile

@@ -10,42 +10,6 @@
 #include "BlasterComponents/LagCompensationComponent.h"
 #include "PlayerController/BlasterPlayerController.h"
 
-AShotgun::AShotgun()
-	: NumberOfPellets(10)
-{
-}
-
-void AShotgun::ShotgunTraceEndWithScatter(const FVector& HitTarget, TArray<FVector_NetQuantize>& HitTargets) const
-{
-	if (!GetWeaponMesh()) return;
-
-	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
-	if (!MuzzleFlashSocket) return;
-
-	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
-	const FVector TraceStart = SocketTransform.GetLocation();
-
-	// 샷건처럼 탄환을 방사시키기 위해 타겟지점에 원형 구체를 생성
-	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
-	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
-
-	HitTargets.Reserve(NumberOfPellets);
-	for (uint32 i = 0; i < NumberOfPellets; ++i)
-	{
-		// 구체 기준으로 랜덤한 벡터 하나를 고름
-		const FVector RandVec = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
-		const FVector EndLoc = SphereCenter + RandVec;
-		// 랜덤한 벡터까지의 거리
-		FVector ToEndLoc = EndLoc - TraceStart;
-
-		// 시작지점에서 랜덤위치까지 Trace 거리/사이즈만큼이 엔드포인트
-		// 거리/사이즈는 그냥 기존 거리가 너무 멀어서 정한 임의의 사정거리임
-		ToEndLoc = TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size();
-
-		HitTargets.Add(ToEndLoc);
-	}
-}
-
 void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 {
 	AWeapon::Fire(FVector());
@@ -55,6 +19,7 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 		const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		const FVector Start = SocketTransform.GetLocation();
 
+		// 샷건은 피격자를 한번에 확인
 		TMap<ABlasterCharacter*, uint32> HitMap;
 		TMap<ABlasterCharacter*, uint32> HeadShotHitMap;
 		for (const FVector_NetQuantize& HitTarget : HitTargets)
@@ -139,5 +104,36 @@ void AShotgun::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 				BlasterOwnerCharacter->GetLagCompensation()->ServerShotgunScoreRequest(HitCharacters, Start, HitTargets, static_cast<double>(BlasterOwnerController->GetServerTime() - BlasterOwnerController->GetSingleTripTime()), this);
 			}
 		}
+	}
+}
+
+void AShotgun::ShotgunTraceEndWithScatter(const FVector& HitTarget, TArray<FVector_NetQuantize>& HitTargets) const
+{
+	if (!GetWeaponMesh()) return;
+
+	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
+	if (!MuzzleFlashSocket) return;
+
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector TraceStart = SocketTransform.GetLocation();
+
+	// 샷건처럼 탄환을 방사시키기 위해 타겟지점에 원형 구체를 생성
+	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
+	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
+
+	HitTargets.Reserve(NumberOfPellets);
+	for (uint32 i = 0; i < NumberOfPellets; ++i)
+	{
+		// 구체 기준으로 랜덤한 벡터 하나를 고름
+		const FVector RandVec = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
+		const FVector EndLoc = SphereCenter + RandVec;
+		// 랜덤한 벡터까지의 거리
+		FVector ToEndLoc = EndLoc - TraceStart;
+
+		// 시작지점에서 랜덤위치까지 Trace 거리/사이즈만큼이 엔드포인트
+		// 거리/사이즈는 그냥 기존 거리가 너무 멀어서 정한 임의의 사정거리임
+		ToEndLoc = TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size();
+
+		HitTargets.Add(ToEndLoc);
 	}
 }

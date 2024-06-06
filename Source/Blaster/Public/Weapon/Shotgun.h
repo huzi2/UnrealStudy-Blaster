@@ -7,21 +7,22 @@
 #include "Shotgun.generated.h"
 
 /**
- * 
+ * 한 공격에 여러 히트스캔을 사용하는 샷건 클래스
  */
 UCLASS()
 class BLASTER_API AShotgun : public AHitScanWeapon
 {
 	GENERATED_BODY()
-	
-private:
-	AShotgun();
 
 public:
-	void ShotgunTraceEndWithScatter(const FVector& HitTarget, TArray<FVector_NetQuantize>& HitTargets) const;
+	// 샷건 발사
 	void FireShotgun(const TArray<FVector_NetQuantize>& HitTargets);
+	
+	// 샷건 히트스캔의 타격지점들 확인
+	void ShotgunTraceEndWithScatter(const FVector& HitTarget, TArray<FVector_NetQuantize>& HitTargets) const;
 
 private:
+	// 한 번에 공격(히트스캔) 횟수
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	uint32 NumberOfPellets;
+	uint32 NumberOfPellets = 10;
 };

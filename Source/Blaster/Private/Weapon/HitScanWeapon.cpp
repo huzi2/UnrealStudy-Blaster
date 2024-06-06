@@ -20,6 +20,7 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 			const FVector Start = SocketTransform.GetLocation();
 
+			// 충돌 확인
 			FHitResult FireHit;
 			WeaponTraceHit(Start, HitTarget, FireHit);
 			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
