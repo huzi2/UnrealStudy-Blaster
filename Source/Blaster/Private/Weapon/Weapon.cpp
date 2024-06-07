@@ -13,18 +13,6 @@
 //#include "DrawDebugHelpers.h"
 
 AWeapon::AWeapon()
-	: DistanceToSphere(800.f)
-	, SphereRadius(75.f)
-	, Damage(20.f)
-	, HeadShotDamage(40.f)
-	, bUseServerSideRewind(false)
-	, ZoomedFOV(30.f)
-	, ZoomInterpSpeed(20.f)
-	, bAutomatic(true)
-	, FireDelay(0.15f)
-	, bUseScatter(false)
-	, bDestroyWeapon(false)
-	, Sequence(0)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	// 리플리케이션을 켜서 서버의 내용을 클라가 모두 복제하도록함
@@ -115,8 +103,7 @@ void AWeapon::Fire(const FVector& HitTarget)
 	// 탄피 배출
 	if (CasingClass && WeaponMesh && GetWorld())
 	{
-		const USkeletalMeshSocket* AmmoEjectSocket = WeaponMesh->GetSocketByName(TEXT("AmmoEject"));
-		if (AmmoEjectSocket)
+		if (const USkeletalMeshSocket* AmmoEjectSocket = WeaponMesh->GetSocketByName(TEXT("AmmoEject")))
 		{
 			// 생성 지점은 AmmoEject 소켓
 			const FTransform SocketTransform = AmmoEjectSocket->GetSocketTransform(WeaponMesh);
@@ -209,66 +196,6 @@ void AWeapon::OnDropped()
 	{
 		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);
 	}
-}
-
-void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacther)
-	{
-		// 깃발은 다른 팀만 들 수 있다.
-		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() == Team) return;
-		// 깃발을 든 상태에서는 무기를 집을 수 없다.
-		if (BlasterCharacther->IsHoldingTheFlag()) return;
-
-		BlasterCharacther->SetOverlappingWeapon(this);
-	}
-}
-
-void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacther)
-	{
-		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() == Team) return;
-		if (BlasterCharacther->IsHoldingTheFlag()) return;
-
-		BlasterCharacther->SetOverlappingWeapon(nullptr);
-	}
-}
-
-void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
-{
-	if (HasAuthority()) return;
-
-	// 서버에서 요청한대로 Ammo를 갱신
-	Ammo = ServerAmmo;
-	// 서버 요청이 처리됬으므로 --
-	--Sequence;
-	// 아직 서버 요청이 있다면 미리 예측해서 갱신
-	// 이 함수는 SpendRound()로 총알을 소비하면 호출되므로 해결되지 않은 요청은 총알을 소비하는 것이므로 그만큼 총알을 소비했다고친다.
-	Ammo -= Sequence;
-	SetHUDAmmo();
-}
-
-void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
-{
-	if (HasAuthority()) return;
-
-	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
-	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull())
-	{
-		BlasterOwnerCharacter->GetCombat()->JumpToShotgunEnd();
-	}
-
-	SetHUDAmmo();
-}
-
-void AWeapon::OnPingTooHigh(bool bPingTooHigh)
-{
-	// 핑이 너무 높으면 서버 되감기를 사용하지 않는다.
-	// 그 이유는 피격자가 총을 피해 숨었는데 서버 되감기로 맞아버리는 불합리함이 나타날 수 있기 때문
-	bUseServerSideRewind = !bPingTooHigh;
 }
 
 void AWeapon::SetWeaponState(EWeaponState State)
@@ -367,20 +294,27 @@ void AWeapon::CheckInit()
 	}
 }
 
-void AWeapon::SpendRound()
+void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
-	SetHUDAmmo();
+	if (ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor))
+	{
+		// 깃발은 다른 팀만 들 수 있다.
+		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() == Team) return;
+		// 깃발을 든 상태에서는 무기를 집을 수 없다.
+		if (BlasterCharacther->IsHoldingTheFlag()) return;
 
-	// 서버에서 호출했다면 해당 클라이언트에게 탄약을 업데이트하라고 요청
-	if (HasAuthority())
-	{
-		ClientUpdateAmmo(Ammo);
+		BlasterCharacther->SetOverlappingWeapon(this);
 	}
-	else
+}
+
+void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (ABlasterCharacter* BlasterCharacther = Cast<ABlasterCharacter>(OtherActor))
 	{
-		// 클라이언트의 경우 아직 처리되지 않은 서버의 명령으로 ++한다.
-		++Sequence;
+		if (WeaponType == EWeaponType::EWT_Flag && BlasterCharacther->GetTeam() == Team) return;
+		if (BlasterCharacther->IsHoldingTheFlag()) return;
+
+		BlasterCharacther->SetOverlappingWeapon(nullptr);
 	}
 }
 
@@ -439,6 +373,57 @@ void AWeapon::OnEquippedSecondary()
 	{
 		BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &ThisClass::OnPingTooHigh);
 	}
+}
+
+void AWeapon::SpendRound()
+{
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+	SetHUDAmmo();
+
+	// 서버에서 호출했다면 해당 클라이언트에게 탄약을 업데이트하라고 요청
+	if (HasAuthority())
+	{
+		ClientUpdateAmmo(Ammo);
+	}
+	else
+	{
+		// 클라이언트의 경우 아직 처리되지 않은 서버의 명령으로 ++한다.
+		++Sequence;
+	}
+}
+
+void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
+{
+	if (HasAuthority()) return;
+
+	// 서버에서 요청한대로 Ammo를 갱신
+	Ammo = ServerAmmo;
+	// 서버 요청이 처리됬으므로 --
+	--Sequence;
+	// 아직 서버 요청이 있다면 미리 예측해서 갱신
+	// 이 함수는 SpendRound()로 총알을 소비하면 호출되므로 해결되지 않은 요청은 총알을 소비하는 것이므로 그만큼 총알을 소비했다고친다.
+	Ammo -= Sequence;
+	SetHUDAmmo();
+}
+
+void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
+{
+	if (HasAuthority()) return;
+
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull())
+	{
+		BlasterOwnerCharacter->GetCombat()->JumpToShotgunEnd();
+	}
+
+	SetHUDAmmo();
+}
+
+void AWeapon::OnPingTooHigh(bool bPingTooHigh)
+{
+	// 핑이 너무 높으면 서버 되감기를 사용하지 않는다.
+	// 그 이유는 피격자가 총을 피해 숨었는데 서버 되감기로 맞아버리는 불합리함이 나타날 수 있기 때문
+	bUseServerSideRewind = !bPingTooHigh;
 }
 
 void AWeapon::OnRep_WeaponState()
